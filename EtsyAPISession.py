@@ -15,10 +15,18 @@ def check_keys_and_secrets(*args):
 	return False
 
 
+
 class EtsyAPISession:
 	def __init__(self,
 	             resource_owner_key: str,
-	             resource_owner_secret: str):
+	             resource_owner_secret: str,
+	             client_key=None,
+	             client_secret=None):
+		if client_key is None or client_secret is None:
+			client_key = os.getenv('ETSY_API_KEY')
+			client_secret = os.getenv('ETSY_API_SECRET')
+		self.__client_key = client_key
+		self.__client_secret = client_secret
 		self.__resource_owner_key: str = resource_owner_key
 		self.__resource_owner_secret: str = resource_owner_secret
 		self.__etsy_api_session: OAuth1Session = self.create_etsy_api_session()
@@ -28,27 +36,32 @@ class EtsyAPISession:
 	
 	def create_etsy_api_session(self) -> OAuth1Session:
 		if check_keys_and_secrets((
-				os.getenv('ETSY_API_KEY'),
-				os.getenv('ETSY_API_SECRET'),
+				self.__client_key,
+				self.__client_secret,
 				self.__resource_owner_key,
 				self.__resource_owner_secret
 		)):
-			raise ValueError("CLIENT_KEY or CLIENT_SECRET or RESOURCE_OWNER_KEY or RESOURCE_OWNER_SECRET is not found!")
+			raise ValueError("CLIENT_KEY (APP) or CLIENT_SECRET (APP) or RESOURCE_OWNER_KEY (USER) or RESOURCE_OWNER_SECRET (USER) is not found!")
 		
 		etsy_api_session = OAuth1Session(
-			client_key=os.getenv('ETSY_API_KEY'),
-			client_secret=os.getenv('ETSY_API_SECRET'),
+			client_key=self.__client_key,
+			client_secret=self.__client_secret,
 			resource_owner_key=self.__resource_owner_key,
 			resource_owner_secret=self.__resource_owner_secret
 		)
 		return etsy_api_session
 	
 	@staticmethod
-	def get_request_token() -> dict:
+	def get_request_token(
+			client_key=None,
+			client_secret=None) -> dict:
+		if client_key is None or client_secret is None:
+			client_key = os.getenv('ETSY_API_KEY')
+			client_secret = os.getenv('ETSY_API_SECRET')
 		oauth_session = OAuth1Session(
-			client_key=os.getenv('ETSY_API_KEY'),
-			client_secret=os.getenv('ETSY_API_SECRET'),
-			callback_uri='http://localhost:3000/#/verify/etsy'
+			client_key=client_key,
+			client_secret=client_secret,
+			callback_uri=os.getenv("CALLBACK_URI")
 		)
 		request_token_dict: dict = oauth_session.fetch_request_token(
 			url="https://openapi.etsy.com/v2/oauth/request_token?scope=email_r%20listings_r%20transactions_r%20profile_r%20address_r%20shops_rw"
@@ -56,10 +69,15 @@ class EtsyAPISession:
 		return request_token_dict
 	
 	@staticmethod
-	def get_access_token(resource_owner_key: str, resource_owner_secret: str, verifier: str) -> dict:
+	def get_access_token(resource_owner_key: str, resource_owner_secret: str, verifier: str,
+	                     client_key=None,
+	                     client_secret=None) -> dict:
+		if client_key is None or client_secret is None:
+			client_key = os.getenv('ETSY_API_KEY')
+			client_secret = os.getenv('ETSY_API_SECRET')
 		oauth_session = OAuth1Session(
-			client_key=os.getenv('ETSY_API_KEY'),
-			client_secret=os.getenv('ETSY_API_SECRET'),
+			client_key=client_key,
+			client_secret=client_secret,
 			resource_owner_key=resource_owner_key,
 			resource_owner_secret=resource_owner_secret
 		)

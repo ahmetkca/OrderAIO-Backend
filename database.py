@@ -1,12 +1,15 @@
 import os
+import datetime
 from typing import Optional
-
+import secrets
 import motor.motor_asyncio
 from bson import ObjectId
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, AnyHttpUrl, validator
+from auth import AuthHandler
 
 load_dotenv()
+auth_handler = AuthHandler()
 
 
 class MongoDBConnection:
@@ -31,20 +34,71 @@ class PyObjectId(ObjectId):
 		field_schema.update(type="string")
 
 
+class InvitationEmail(BaseModel):
+	id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+	email: EmailStr = Field(allow_mutation=False, unique=True)
+	verification_code: str = None
+	is_registered: bool = False
+	
+	@validator('verification_code', pre=True, always=True)
+	def generate_verification_code(cls, v) -> str:
+		return secrets.token_urlsafe(16)
+	
+	@validator('is_registered', pre=True, always=True)
+	def check_is_registered(cls, v):
+		return False
+	
+	class Config:
+		allow_population_by_field_name = True
+		arbitrary_types_allowed = True
+		validate_assignment = True
+		json_encoders = {ObjectId: str}
+
+
+class User(BaseModel):
+	id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+	email: EmailStr = Field(unique=True)
+	username: str = Field(unique=True)
+	password: str = Field(...)
+	is_admin: bool = False
+	verification_code: str = Field(...)
+	
+	@validator('is_admin', pre=True, always=True)
+	def default_is_admin(cls, v):
+		if v:
+			return False
+		return False
+	
+	@validator('password', pre=True, always=True)
+	def hash_password(cls, v):
+		return auth_handler.get_password_hash(v)
+	
+	class Config:
+		allow_mutation = False
+		allow_population_by_field_name = True
+		arbitrary_types_allowed = True
+		validate_assignment = True
+		json_encoders = {ObjectId: str}
+
+
 class EtsyShopConnection(BaseModel):
 	id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
 	app_key: Optional[str]
 	app_secret: Optional[str]
-	etsy_shop_name: Optional[str] = Field(alias="shop_name")
-	etsy_shop_id: Optional[str] = Field(alias="shop_id")
+	etsy_shop_name: Optional[str]
+	etsy_shop_id: Optional[str]
+	shop_icon_url: Optional[AnyHttpUrl]
+	shop_banner_url: Optional[AnyHttpUrl]
+	shop_url: Optional[AnyHttpUrl]
 	etsy_owner_email: Optional[EmailStr]
-	etsy_user_id: Optional[str] = Field(alias="user_id")
-	etsy_oauth_token: Optional[str] = Field(alias="oauth_token")
-	etsy_oauth_token_secret: Optional[str] = Field(alias="oauth_token_secret")
+	etsy_user_id: Optional[str]
+	etsy_oauth_token: Optional[str]
+	etsy_oauth_token_secret: Optional[str]
 	# temp_oauth_verifier: Optional[str] = Field(alias="verifier")
-	request_temporary_oauth_token: str = Field(alias="temp_oauth_token")
-	request_temporary_oauth_token_secret: str = Field(alias="temp_oauth_token_secret")
+	request_temporary_oauth_token: Optional[str]
+	request_temporary_oauth_token_secret: Optional[str]
 	verified: bool = Field(default=False)
+	createdAt: datetime.datetime = Field(default=datetime.datetime.now())
 	
 	class Config:
 		allow_population_by_field_name = True
@@ -60,4 +114,4 @@ class UpdateEtsyShopConnection(BaseModel):
 	etsy_oauth_token: Optional[str]
 	etsy_oauth_token_secret: Optional[str]
 	verified: Optional[bool]
-	# temp_oauth_verifier: Optional[str]
+# temp_oauth_verifier: Optional[str]
