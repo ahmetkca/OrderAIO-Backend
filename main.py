@@ -1,29 +1,30 @@
 # from pymemcache.client import base
-from datetime import datetime, timedelta
 import os
-import jwt
-import smtplib, ssl
 import pprint
+import smtplib
+import ssl
+from datetime import datetime, timedelta
 from typing import List, Optional
+
+import jwt
+from bson.objectid import ObjectId
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, Body, HTTPException, status
-from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel
-from EtsyAPISession import EtsyAPISession
-from database import MongoDBConnection, EtsyShopConnection, UpdateEtsyShopConnection, InvitationEmail, User
-from starlette.middleware import Middleware
-from starlette.middleware.cors import CORSMiddleware
-from bson.objectid import ObjectId
-from auth import AuthHandler
-from schemas import UserData
-from EtsyAPI import EtsyAPI, create_etsy_api_with_etsy_connection
-from starlette.requests import Request
-from oauth2 import (oauth2_schema,
-					is_authenticated,
-					verify_password,
-					encode_token)
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
+from starlette.middleware.cors import CORSMiddleware
+from starlette.requests import Request
+
+from EtsyAPI import EtsyAPI, create_etsy_api_with_etsy_connection
+from EtsyAPISession import EtsyAPISession
+from auth import AuthHandler
+from database import MongoDBConnection, EtsyShopConnection, UpdateEtsyShopConnection, InvitationEmail, User
+from oauth2 import (oauth2_schema,
+                    is_authenticated,
+                    verify_password)
+from schemas import UserData
 
 # memcache = base.Client(('localhost', 11211))
 
@@ -63,8 +64,8 @@ async def authenticate(form_data: OAuth2PasswordRequestForm = Depends()):
 	Raises:
 		HTTPException: 401 error if username or password are not recognised.
 	"""
-
-	user = await mongodb.db['Users'].find_one({ "username": form_data.username})
+	
+	user = await mongodb.db['Users'].find_one({"username": form_data.username})
 	print(user)
 	print(verify_password(form_data.password, user['password']))
 	if (user is None) or (not verify_password(form_data.password, user['password'])):
@@ -75,7 +76,7 @@ async def authenticate(form_data: OAuth2PasswordRequestForm = Depends()):
 		"scopes": user["scopes"] if user["scopes"] is not None else [""]
 	}
 	issued_at = datetime.utcnow()
-	expire = issued_at + timedelta(minutes=1)
+	expire = issued_at + timedelta(hours=12)
 	# print(expire)
 	payload.update({"exp": expire, "iat": issued_at, "sub": "jwt-cookies-test"})
 	encoded_jwt = jwt.encode(
@@ -106,6 +107,7 @@ def authenticatex(payload=Depends(auth_handler.auth_wrapper)):
 	return {
 		"payload": payload
 	}
+
 
 @app.post('/invite')
 async def invite(invitation_details: InvitationEmail = Body(...), user: UserData = Depends(is_authenticated)):
@@ -201,14 +203,16 @@ async def get_all_receipts_by_etsy_connection(etsy_connection_id: str, user: Use
 
 
 @app.get('/transactions/{receipt_id}/{etsy_connection_id}')
-async def get_all_transactions_by_receipt_id(receipt_id: str, etsy_connection_id: str, user: UserData = Depends(is_authenticated)):
+async def get_all_transactions_by_receipt_id(receipt_id: str, etsy_connection_id: str,
+                                             user: UserData = Depends(is_authenticated)):
 	etsy_api = await create_etsy_api_with_etsy_connection(mongodb.db, etsy_connection_id, 1)
 	all_transactions_by_receipt_id = etsy_api.findAllShop_Receipt2Transactions(receipt_id)
 	return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=all_transactions_by_receipt_id)
 
 
 @app.get('/images/{listing_id}/{listing_image_id}/{etsy_connection_id}')
-async def get_image_of_transaction(listing_id: str, listing_image_id: str, etsy_connection_id: str, user: UserData = Depends(is_authenticated)):
+async def get_image_of_transaction(listing_id: str, listing_image_id: str, etsy_connection_id: str,
+                                   user: UserData = Depends(is_authenticated)):
 	etsy_api = await create_etsy_api_with_etsy_connection(mongodb.db, etsy_connection_id, 1)
 	images = etsy_api.getImage_Listing(listing_id, listing_image_id)
 	return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=images.json())
@@ -244,7 +248,8 @@ class VerifyEtsyConnection(BaseModel):
 
 
 @app.put("/verify/etsy")
-async def verify_request_tokens(verify_body: VerifyEtsyConnection = Body(...), user: UserData = Depends(is_authenticated)):
+async def verify_request_tokens(verify_body: VerifyEtsyConnection = Body(...),
+                                user: UserData = Depends(is_authenticated)):
 	etsy_connection_id: ObjectId = ObjectId(verify_body.etsy_connection_id)
 	etsy_connection = await mongodb.db["EtsyShopConnections"].find_one({"_id": etsy_connection_id})
 	access_token_dict: dict = EtsyAPISession.get_access_token(
@@ -336,7 +341,8 @@ async def get_etsy_connection(etsy_connection_id: str, user: UserData = Depends(
 
 
 @app.put("/connection/etsy/{id}", response_model=EtsyShopConnection)
-async def update_etsy_connection(id: str, etsy_connection_fields: UpdateEtsyShopConnection = Body(...), user: UserData = Depends(is_authenticated)):
+async def update_etsy_connection(id: str, etsy_connection_fields: UpdateEtsyShopConnection = Body(...),
+                                 user: UserData = Depends(is_authenticated)):
 	id = ObjectId(id)
 	etsy_connection = {k: v for k, v in etsy_connection_fields.dict().items() if v is not None}
 	
