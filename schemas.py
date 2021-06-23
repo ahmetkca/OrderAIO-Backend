@@ -2,6 +2,15 @@ from typing import List
 from pydantic import BaseModel
 
 
+class NoteUpdate(BaseModel):
+    note: str
+
+
+class NoteData(BaseModel):
+    receipt_id: str
+    note: str
+
+
 class UserData(BaseModel):
     """User name, ID and scopes
     """

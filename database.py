@@ -1,5 +1,6 @@
 import os
 import datetime
+from enum import Enum
 from typing import Optional
 import secrets
 import motor.motor_asyncio
@@ -32,6 +33,38 @@ class PyObjectId(ObjectId):
 	@classmethod
 	def __modify_schema__(cls, field_schema):
 		field_schema.update(type="string")
+
+
+class ReceiptNoteStatus(str, Enum):
+	completed: str = "COMPLETED"
+	uncompleted: str = "UNCOMPLETED"
+
+
+class CreateReceiptNote(BaseModel):
+	receipt_id: str
+	note: str
+	status: ReceiptNoteStatus = Field(default=ReceiptNoteStatus.uncompleted)
+	
+
+class UpdateReceiptNote(BaseModel):
+	receipt_id: str
+	note: Optional[str]
+	status: Optional[ReceiptNoteStatus]
+
+
+class ReceiptNote(BaseModel):
+	id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+	receipt_id: str
+	created_by: str
+	updated_by: Optional[str]
+	note: str
+	status: ReceiptNoteStatus = Field(default=ReceiptNoteStatus.uncompleted)
+	
+	class Config:
+		allow_population_by_field_name = True
+		arbitrary_types_allowed = True
+		validate_assignment = True
+		json_encoders = {ObjectId: str}
 
 
 class InvitationEmail(BaseModel):
