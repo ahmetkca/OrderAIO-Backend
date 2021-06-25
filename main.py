@@ -1,6 +1,13 @@
 # from pymemcache.client import base
 import json
+
+# docker build -t myimage .
+# docker run --env-file .env -d --name mycontainer -p 80:80 myimage
 import os
+files = [f for f in os.listdir('.') if os.path.isfile(f)]
+for f in files:
+    print(f"{f} whattttttttttttttt")
+
 import pprint
 import smtplib
 import ssl
@@ -18,7 +25,7 @@ from pydantic import BaseModel
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 
-from EtsyAPI import EtsyAPI, create_etsy_api_with_etsy_connection
+
 from EtsyAPISession import EtsyAPISession
 from auth import AuthHandler
 from database import MongoDBConnection, EtsyShopConnection, UpdateEtsyShopConnection, InvitationEmail, User, \
@@ -26,15 +33,15 @@ from database import MongoDBConnection, EtsyShopConnection, UpdateEtsyShopConnec
 from oauth2 import (oauth2_schema,
                     is_authenticated,
                     verify_password)
-from schemas import UserData, NoteData, NoteUpdate
-from myJsonEncoder import JSONEncoder as myJSONEncoder
+from schemas import UserData
+from EtsyAPI import EtsyAPI, create_etsy_api_with_etsy_connection
 
 # memcache = base.Client(('localhost', 11211))
 
 context = ssl.create_default_context()
 email_invitation_link = os.getenv("FRONTEND_URI") + "/#/register?email={email}&verification_code={verification_code}"
 
-load_dotenv()
+load_dotenv("../.env")
 
 auth_handler = AuthHandler()
 
@@ -372,18 +379,17 @@ async def get_all_etsy_connections(user: UserData = Depends(is_authenticated)):
 @app.get("/connection/etsy/{etsy_connection_id}", response_model=EtsyShopConnection)
 async def get_etsy_connection(etsy_connection_id: str, user: UserData = Depends(is_authenticated)):
     _id = ObjectId(etsy_connection_id)
-    if (
-            etsy_connection := await mongodb.db.EtsyShopConnections.find_one(filter={
-                "_id": _id
-            }, projection={
-                "app_key": False,
-                "app_secret": False,
-                "etsy_oauth_token": False,
-                "etsy_oauth_token_secret": False,
-                "request_temporary_oauth_token": False,
-                "request_temporary_oauth_token_secret": False
-            })
-    ) is not None:
+    etsy_connection = await mongodb.db.EtsyShopConnections.find_one(filter={
+        "_id": _id
+    }, projection={
+        "app_key": False,
+        "app_secret": False,
+        "etsy_oauth_token": False,
+        "etsy_oauth_token_secret": False,
+        "request_temporary_oauth_token": False,
+        "request_temporary_oauth_token_secret": False
+    })
+    if etsy_connection is not None:
         return etsy_connection
     
     raise HTTPException(status_code=404, detail=f"EtsyShopConnection {_id} not found")
@@ -403,14 +409,12 @@ async def update_etsy_connection(id: str, etsy_connection_fields: UpdateEtsyShop
         })
         
         if update_result.modified_count == 1:
-            if (
-                    updated_etsy_connection := await mongodb.db["EtsyShopConnections"].find_one({"_id": id})
-            ) is not None:
+            updated_etsy_connection = await mongodb.db["EtsyShopConnections"].find_one({"_id": id})
+            if updated_etsy_connection is not None:
                 return updated_etsy_connection
-    
-    if (
-            existing_etsy_connection := await mongodb.db["EtsyShopConnections"].find_one({"_id": id})
-    ) is not None:
+
+    existing_etsy_connection = await mongodb.db["EtsyShopConnections"].find_one({"_id": id})
+    if existing_etsy_connection is not None:
         return existing_etsy_connection
     
     raise HTTPException(status_code=404, detail=f"EtsyShopConnection {id} not found")

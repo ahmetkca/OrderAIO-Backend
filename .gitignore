@@ -1,3 +1,5 @@
 myvenv
 __pycache__
 .idea
+.env
+.deta

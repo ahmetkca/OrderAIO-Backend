@@ -3,7 +3,7 @@ JWT in httpOnly cookies with OAuth2 password flow.
 """
 from dotenv import load_dotenv
 import os
-load_dotenv()
+load_dotenv("../.env")
 
 from calendar import timegm
 from datetime import datetime, timedelta

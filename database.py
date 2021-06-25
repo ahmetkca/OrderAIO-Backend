@@ -1,16 +1,16 @@
 import os
 import datetime
 from enum import Enum
-from typing import Optional
+from typing import Optional, List
 import secrets
 import motor.motor_asyncio
 from bson import ObjectId
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, EmailStr, AnyHttpUrl, validator
-from auth import AuthHandler
+from oauth2 import get_password_hash
 
-load_dotenv()
-auth_handler = AuthHandler()
+load_dotenv("../.env")
+# auth_handler = AuthHandler()
 
 
 class MongoDBConnection:
@@ -88,23 +88,28 @@ class InvitationEmail(BaseModel):
 		json_encoders = {ObjectId: str}
 
 
+class Roles(str, Enum):
+	admin = "admin"
+	user = "user"
+
+
 class User(BaseModel):
 	id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
 	email: EmailStr = Field(unique=True)
 	username: str = Field(unique=True)
 	password: str = Field(...)
-	is_admin: bool = False
+	scopes: List[Roles] = Field(default=[Roles.user])
 	verification_code: str = Field(...)
 	
-	@validator('is_admin', pre=True, always=True)
-	def default_is_admin(cls, v):
-		if v:
-			return False
-		return False
+	# @validator('is_admin', pre=True, always=True)
+	# def default_is_admin(cls, v):
+	# 	if v:
+	# 		return False
+	# 	return False
 	
 	@validator('password', pre=True, always=True)
 	def hash_password(cls, v):
-		return auth_handler.get_password_hash(v)
+		return get_password_hash(v)
 	
 	class Config:
 		allow_mutation = False
