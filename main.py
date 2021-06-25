@@ -4,9 +4,9 @@ import json
 # docker build -t myimage .
 # docker run --env-file .env -d --name mycontainer -p 80:80 myimage
 import os
-files = [f for f in os.listdir('.') if os.path.isfile(f)]
-for f in files:
-    print(f"{f} whattttttttttttttt")
+# files = [f for f in os.listdir('.') if os.path.isfile(f)]
+# for f in files:
+#     print(f"{f} whattttttttttttttt")
 
 import pprint
 import smtplib
