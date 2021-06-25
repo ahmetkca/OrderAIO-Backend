@@ -68,8 +68,7 @@ mongodb = MongoDBConnection()
 @app.get("/test/env")
 async def test_env():
     return {
-        "mongodb_uri": os.getenv("MONGODB_URI"),
-        "frontend_uri": os.getenv("FRONTEND_URI"),
+        k: v for k, v in os.environ.items()
     }
 
 @app.post('/user/note', response_model=ReceiptNote)
