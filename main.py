@@ -65,7 +65,12 @@ mongodb = MongoDBConnection()
 
 # def without_keys(d, keys):
 # 	return {x: d[x] for x in d if x not in keys}
-
+@app.get("/test/env")
+async def test_env():
+    return {
+        "mongodb_uri": os.getenv("MONGODB_URI"),
+        "frontend_uri": os.getenv("FRONTEND_URI"),
+    }
 
 @app.post('/user/note', response_model=ReceiptNote)
 async def create_note(note_data: CreateReceiptNote = Body(...), user: UserData = Depends(is_authenticated)):
