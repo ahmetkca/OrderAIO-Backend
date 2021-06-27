@@ -127,7 +127,8 @@ async def authenticate(form_data: OAuth2PasswordRequestForm = Depends()):
         "scopes": user["scopes"] if user["scopes"] is not None else [""]
     }
     issued_at = datetime.utcnow()
-    expire = issued_at + timedelta(hours=12, minutes=1)
+    expires_in = timedelta(hours=6)
+    expire = issued_at + expires_in
     # print(expire)
     payload.update({"exp": expire, "iat": issued_at, "sub": "jwt-cookies-test"})
     encoded_jwt = jwt.encode(
@@ -139,9 +140,9 @@ async def authenticate(form_data: OAuth2PasswordRequestForm = Depends()):
     response.set_cookie(
         oauth2_schema.token_name,
         encoded_jwt,
-        expires=expire,
+        expires=expires_in.seconds,
         httponly=True,
-        secure=True
+        secure=True,
     )
     return response
 
