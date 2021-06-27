@@ -52,6 +52,10 @@ origins = [
 print(origins)
 app = FastAPI()
 
+@app.get("/")
+async def root():
+    return {"root": "boot"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -233,11 +237,6 @@ async def login(auth_details: LoginDetails = Body(...)):
     return {
         "token": token
     }
-
-
-@app.get("/")
-async def root():
-    return {"root": "boot"}
 
 
 @app.get("/receipts/{etsy_connection_id}")
