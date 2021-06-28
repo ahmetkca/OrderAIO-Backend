@@ -41,7 +41,8 @@ from EtsyAPI import EtsyAPI, create_etsy_api_with_etsy_connection
 context = ssl.create_default_context()
 email_invitation_link = os.getenv("FRONTEND_URI") + "/#/register?email={email}&verification_code={verification_code}"
 
-load_dotenv("../.env")
+# load_dotenv("../.env")
+load_dotenv()
 
 auth_handler = AuthHandler()
 
@@ -58,24 +59,24 @@ async def root():
 	return {"root": "boot"}
 
 
-# handle CORS preflight requests
-@app.options('/{rest_of_path:path}')
-async def preflight_handler(request: Request, rest_of_path: str) -> Response:
-	response = Response()
-	response.headers['Access-Control-Allow-Origin'] = origins[0]
-	response.headers['Access-Control-Allow-Methods'] = 'POST, GET, DELETE, OPTIONS, PUT'
-	response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
-	return response
-
-
-# set CORS headers
-@app.middleware("http")
-async def add_CORS_header(request: Request, call_next):
-	response = await call_next(request)
-	response.headers['Access-Control-Allow-Origin'] = origins[0]
-	response.headers['Access-Control-Allow-Methods'] = 'POST, GET, DELETE, OPTIONS, PUT'
-	response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
-	return response
+# # handle CORS preflight requests
+# @app.options('/{rest_of_path:path}')
+# async def preflight_handler(request: Request, rest_of_path: str) -> Response:
+# 	response = Response()
+# 	response.headers['Access-Control-Allow-Origin'] = origins[0]
+# 	response.headers['Access-Control-Allow-Methods'] = 'POST, GET, DELETE, OPTIONS, PUT'
+# 	response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
+# 	return response
+#
+#
+# # set CORS headers
+# @app.middleware("http")
+# async def add_CORS_header(request: Request, call_next):
+# 	response = await call_next(request)
+# 	response.headers['Access-Control-Allow-Origin'] = origins[0]
+# 	response.headers['Access-Control-Allow-Methods'] = 'POST, GET, DELETE, OPTIONS, PUT'
+# 	response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
+# 	return response
 
 
 app.add_middleware(
