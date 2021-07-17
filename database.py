@@ -11,7 +11,7 @@ from bson import ObjectId
 
 from pydantic import BaseModel, Field, EmailStr, AnyHttpUrl, validator
 from oauth2 import get_password_hash
-from config import MONGODB_URI, REDIS_URL
+from config import MONGODB_URI, REDIS_TLS_URL
 
 
 # class MongoDBConnection:
@@ -28,11 +28,11 @@ class MyRedis(object):
 			cls._instance = object.__new__(cls)
 			try:
 				print("Connecting to Redis...")
-				url = urlparse(REDIS_URL)
-				r = redis.Redis(host=url.hostname,
-				                port=url.port,
-				                username=url.username,
-				                password=url.password,
+				redis_connection_url = urlparse(REDIS_TLS_URL)
+				r = redis.Redis(host=redis_connection_url.hostname,
+				                port=redis_connection_url.port,
+				                username=redis_connection_url.username,
+				                password=redis_connection_url.password,
 				                ssl=True,
 				                ssl_cert_reqs=None, decode_responses=True)
 				MyRedis._instance.r = r
