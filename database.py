@@ -14,7 +14,6 @@ from oauth2 import get_password_hash
 from config import MONGODB_URI, REDIS_URL
 
 
-
 # class MongoDBConnection:
 # 	def __init__(self):
 # 		self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URI)
@@ -30,9 +29,9 @@ class MyRedis(object):
 			try:
 				print("Connecting to Redis...")
 				url = urlparse(REDIS_URL)
-				r = redis.Redis(host=url.hostname, 
-				                port=url.port, 
-				                username=url.username, 
+				r = redis.Redis(host=url.hostname,
+				                port=url.port,
+				                username=url.username,
 				                password=url.password,
 				                ssl=True,
 				                ssl_cert_reqs=None, decode_responses=True)
@@ -42,14 +41,15 @@ class MyRedis(object):
 			except Exception as e:
 				print("Error: Redis connection not established {}".format(e))
 			else:
-				print("Redis connection established\nconnected clients: {}\nredis_version: {}".format(redis_info["connected_clients"],
-				                                                                                      redis_info["redis_version"]))
+				print("Redis connection established\nconnected clients: {}\nredis_version: {}".format(
+					redis_info["connected_clients"],
+					redis_info["redis_version"]))
 			print("#===================#")
 		return cls._instance
 	
 	def __init__(self):
 		self.r: redis.Redis = self._instance.r
-		
+	
 	def __del__(self):
 		self.r.close()
 
