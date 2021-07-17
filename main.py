@@ -1,13 +1,4 @@
-# from pymemcache.client import base
-import json
-
-# docker build -t myimage .
-# docker run --env-file .env -d --name mycontainer -p 80:80 myimage
-import os
-# files = [f for f in os.listdir('.') if os.path.isfile(f)]
-# for f in files:
-#     print(f"{f} whattttttttttttttt")
-
+import ujson
 import pprint
 import smtplib
 import ssl
@@ -16,67 +7,75 @@ from typing import List, Optional
 
 import jwt
 from bson.objectid import ObjectId
-from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, Body, HTTPException, status
+from fastapi import FastAPI, Depends, Body, HTTPException, status, BackgroundTasks, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
+from redis import ResponseError
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
 
 from EtsyAPISession import EtsyAPISession
+from EtsyShopManager import EtsyShopManager
 from auth import AuthHandler
-from database import MongoDBConnection, EtsyShopConnection, UpdateEtsyShopConnection, InvitationEmail, User, \
+from database import MongoDB, MyRedis, EtsyShopConnection, UpdateEtsyShopConnection, InvitationEmail, User, \
 	ReceiptNote, CreateReceiptNote, UpdateReceiptNote
 from oauth2 import (oauth2_schema,
                     is_authenticated,
                     verify_password)
-from schemas import UserData
+from schemas import UserData, ReceiptStatus
 from EtsyAPI import EtsyAPI, create_etsy_api_with_etsy_connection
+from MyScheduler import MyScheduler
+from config import FRONTEND_URI, JWT_SECRET, MAIL_EMAIL, MAIL_HOST, MAIL_PASSWORD, MAIL_PORT, SCHEDULED_JOB_INTERVAL
 
-# memcache = base.Client(('localhost', 11211))
+
+mongodb = MongoDB()
+r = MyRedis().r
 
 context = ssl.create_default_context()
-email_invitation_link = os.getenv("FRONTEND_URI") + "/#/register?email={email}&verification_code={verification_code}"
+email_invitation_link = FRONTEND_URI + "/#/register?email={email}&verification_code={verification_code}"
 
-# load_dotenv("../.env")
-load_dotenv()
 
 auth_handler = AuthHandler()
 
 origins = [
-	os.getenv("FRONTEND_URI"),
+	FRONTEND_URI,
 ]
-# middleware = [Middleware(CORSMiddleware, allow_origins=origins)]
+
 print(origins)
 app = FastAPI()
+
+
+@app.on_event("startup")
+async def startup_event():
+	myScheduler = MyScheduler(mongodb)
+	etsy_connections = await mongodb.db["EtsyShopConnections"].find().to_list(100)
+	job_offset = 0
+	for etsy_connection in etsy_connections:
+		_id = str(etsy_connection["_id"])
+		myScheduler.scheduler.add_job(
+			EtsyShopManager.syncShop,
+			"interval",
+			minutes=SCHEDULED_JOB_INTERVAL + job_offset,
+			kwargs={"etsy_connection_id": _id,
+			        "db": mongodb.db,
+			        "r": r},
+			id=f"{_id}",
+			name=f"{_id}",
+		)
+		job_offset += 5
+	myScheduler.scheduler.print_jobs()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+	await mongodb.client.close()
 
 
 @app.get("/")
 async def root():
 	return {"root": "boot"}
-
-
-# # handle CORS preflight requests
-# @app.options('/{rest_of_path:path}')
-# async def preflight_handler(request: Request, rest_of_path: str) -> Response:
-# 	response = Response()
-# 	response.headers['Access-Control-Allow-Origin'] = origins[0]
-# 	response.headers['Access-Control-Allow-Methods'] = 'POST, GET, DELETE, OPTIONS, PUT'
-# 	response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
-# 	return response
-#
-#
-# # set CORS headers
-# @app.middleware("http")
-# async def add_CORS_header(request: Request, call_next):
-# 	response = await call_next(request)
-# 	response.headers['Access-Control-Allow-Origin'] = origins[0]
-# 	response.headers['Access-Control-Allow-Methods'] = 'POST, GET, DELETE, OPTIONS, PUT'
-# 	response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
-# 	return response
 
 
 app.add_middleware(
@@ -87,17 +86,6 @@ app.add_middleware(
 	allow_headers=["*"],
 )
 
-mongodb = MongoDBConnection()
-
-
-# def without_keys(d, keys):
-# 	return {x: d[x] for x in d if x not in keys}
-@app.get("/test/env")
-async def test_env():
-	return {
-		k: v for k, v in os.environ.items()
-	}
-
 
 @app.post('/user/note', response_model=ReceiptNote)
 async def create_note(note_data: CreateReceiptNote = Body(...), user: UserData = Depends(is_authenticated)):
@@ -106,7 +94,8 @@ async def create_note(note_data: CreateReceiptNote = Body(...), user: UserData =
 		"receipt_id": note_data["receipt_id"],
 		"note": note_data["note"],
 		"created_by": user.user,
-		"status": note_data["status"]
+		"status": note_data["status"],
+		"created_at": datetime.now()
 	})
 	inserted_note_Data = await mongodb.db["Notes"].find_one({"_id": insert_note_data.inserted_id})
 	pprint.pprint(inserted_note_Data)
@@ -126,13 +115,27 @@ async def get_note_by_receipt_id(receipt_id: str, user: UserData = Depends(is_au
 async def update_note(receipt_id: str, note_data: UpdateReceiptNote = Body(...),
                       user: UserData = Depends(is_authenticated)):
 	note_data = jsonable_encoder(note_data)
-	update_fields = {k: v for k, v in note_data.items() if v is not None}
+	note_data["updated_at"] = datetime.now()
+	# update_fields = {k: v for k, v in note_data.items() if v is not None}
 	update_note_data = await mongodb.db["Notes"].update_one({"receipt_id": receipt_id}, {
-		"$set": update_fields
+		"$set": note_data
 	})
 	if update_note_data.modified_count == 1:
 		note = await mongodb.db["Notes"].find_one({"receipt_id": receipt_id})
 		return note
+
+
+@app.post('/auth/logout')
+async def logout(request: Request):
+	response = JSONResponse({"status": "logged_out"})
+	response.set_cookie(
+		oauth2_schema.token_name,
+		"",
+		expires=0,
+		httponly=True,
+		secure=True,
+	)
+	return response
 
 
 @app.post('/auth/token')
@@ -145,8 +148,8 @@ async def authenticate(form_data: OAuth2PasswordRequestForm = Depends()):
     """
 	
 	user = await mongodb.db['Users'].find_one({"username": form_data.username})
-	print(user)
-	print(verify_password(form_data.password, user['password']))
+	# print(user)
+	# print(verify_password(form_data.password, user['password']))
 	if (user is None) or (not verify_password(form_data.password, user['password'])):
 		raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid username and/or password')
 	payload = {
@@ -161,7 +164,7 @@ async def authenticate(form_data: OAuth2PasswordRequestForm = Depends()):
 	payload.update({"exp": expire, "iat": issued_at, "sub": "jwt-cookies-test"})
 	encoded_jwt = jwt.encode(
 		payload,
-		os.getenv("JWT_SECRET"),
+		JWT_SECRET,
 		algorithm="HS256"
 	)
 	response = JSONResponse({"status": "authenticated"})
@@ -182,48 +185,72 @@ async def auth_test(_request: Request, user: UserData = Depends(is_authenticated
 	return {"status": "ok", "user": user}
 
 
-@app.post('/authenticate')
-def authenticatex(payload=Depends(auth_handler.auth_wrapper)):
-	return {
-		"payload": payload
-	}
+# @app.post('/authenticate')
+# def authenticatex(payload=Depends(auth_handler.auth_wrapper)):
+# 	return {
+# 		"payload": payload
+# 	}
 
 
 @app.post('/invite')
-async def invite(invitation_details: InvitationEmail = Body(...), user: UserData = Depends(is_authenticated)):
-	if "admin" not in user["scopes"]:
-		raise HTTPException(status_code=400, detail='You have no permission to use this route')
+async def invite(background_tasks: BackgroundTasks, invitation_details: InvitationEmail = Body(...),
+                 user: UserData = Depends(is_authenticated), ):
+	print(invitation_details)
+	created_at = invitation_details.created_at
+	if "admin" not in user.scopes:
+		raise HTTPException(status_code=400, detail='You have no permission to use this endpoint')
+	# invitation_details.created_at = datetime.now()
+	
 	invitation_details = jsonable_encoder(invitation_details)
-	invite_email_result = await mongodb.db["InvitationEmails"].insert_one(jsonable_encoder(invitation_details))
+	check_email_result = await mongodb.db["InvitationEmails"].find_one({"email": invitation_details["email"]})
+	if check_email_result is not None:
+		if check_email_result["is_registered"]:
+			raise HTTPException(status_code=400,
+			                    detail=f'{invitation_details["email"]} has already been registered.')
+		else:
+			raise HTTPException(status_code=400,
+			                    detail=f'Invitation email has been already sent to {invitation_details["email"]}')
+	invitation_details["created_at"] = created_at
+	invite_email_result = await mongodb.db["InvitationEmails"].insert_one(invitation_details)
 	inserted_email_invitation = await mongodb.db["InvitationEmails"].find_one({
 		"_id": invite_email_result.inserted_id
 	})
 	print(inserted_email_invitation)
-	with smtplib.SMTP_SSL(os.getenv("MAIL_HOST"), os.getenv("MAIL_PORT"), context=context) as server:
-		server.login(os.getenv("MAIL_EMAIL"), os.getenv("MAIL_PASSWORD"))
-		server.sendmail(
-			from_addr=os.getenv("MAIL_EMAIL"),
-			to_addrs=inserted_email_invitation['email'],
-			msg=f"""
-            Your verification code is {inserted_email_invitation['verification_code']}
-            {email_invitation_link.format(
-				email=inserted_email_invitation['email'],
-				verification_code=inserted_email_invitation['verification_code']
-			)}
-            """
-		)
 	
-	return inserted_email_invitation
+	def send_email_invite():
+		with smtplib.SMTP_SSL(MAIL_HOST, MAIL_PORT, context=context) as server:
+			server.login(MAIL_EMAIL, MAIL_PASSWORD)
+			server.sendmail(
+				from_addr=MAIL_EMAIL,
+				to_addrs=inserted_email_invitation['email'],
+				msg=f"""
+	            Your verification code is {inserted_email_invitation['verification_code']}
+	            
+	            The verification code will expire in 30 minutes!
+	            
+	            You can complete your registration by using below link:
+	            {email_invitation_link.format(
+					email=inserted_email_invitation['email'],
+					verification_code=inserted_email_invitation['verification_code']
+				)}
+	            """
+			)
+	
+	background_tasks.add_task(send_email_invite)
+	
+	return {**inserted_email_invitation, "status": "Waiting for verification"}
 
 
 @app.post("/register", response_model=User, response_model_exclude_defaults=True)
 async def register(register_details: User = Body(...)):
+	created_at = register_details.created_at
 	register_details = jsonable_encoder(register_details)
 	# check if the given email is in the InvitationEmails Collection
 	print(register_details)
+	
 	email_query_result = await mongodb.db["InvitationEmails"].find_one({"email": register_details["email"]})
 	if email_query_result is None:
-		raise HTTPException(status_code=400, detail='This email has not been invited')
+		raise HTTPException(status_code=400, detail='This email has not been invited or verification code has been expired.')
 	if email_query_result["is_registered"]:
 		raise HTTPException(status_code=400, detail='This email has already been registered')
 	verification_code = email_query_result['verification_code']
@@ -233,7 +260,9 @@ async def register(register_details: User = Body(...)):
 	if check_username_result is not None:
 		raise HTTPException(status_code=400, detail='This username is already taken')
 	# hashed_password = auth_handler.get_password_hash(register_details['password'])
+	register_details["created_at"] = created_at
 	register_user_result = await mongodb.db["Users"].insert_one(register_details)
+	
 	check_inserted_user = await mongodb.db["Users"].find_one({"_id": register_user_result.inserted_id})
 	if check_inserted_user is None:
 		raise HTTPException(status_code=400, detail='There was an error while registering. Please try again later')
@@ -242,8 +271,11 @@ async def register(register_details: User = Body(...)):
 			"is_registered": True
 		}
 	})
-	find_email_invitation = await mongodb.db['InvitationEmails'].find_one({"_id": updated_email_invitation.upserted_id})
-	return JSONResponse(status_code=status.HTTP_201_CREATED, content=find_email_invitation)
+	print(f"upserted id: {updated_email_invitation.upserted_id}")
+	find_email_invitation = await mongodb.db['InvitationEmails'].find_one({"email": email_query_result["email"]})
+	print(find_email_invitation)
+	find_email_invitation["created_at"] = find_email_invitation["created_at"].isoformat()
+	return JSONResponse(status_code=status.HTTP_200_OK, content=find_email_invitation)
 
 
 class LoginDetails(BaseModel):
@@ -251,20 +283,155 @@ class LoginDetails(BaseModel):
 	password: str
 
 
-@app.post("/login")
-async def login(auth_details: LoginDetails = Body(...)):
-	auth_details = jsonable_encoder(auth_details)
-	user = await mongodb.db["Users"].find_one({"username": auth_details['username']})
-	if (user is None) or (not auth_handler.verify_password(auth_details['password'], user['password'])):
-		raise HTTPException(status_code=401, detail='Invalid username and/or password')
-	token = auth_handler.encode_token(user['_id'], user['username'], user['is_admin'])
+# @app.post("/login")
+# async def login(auth_details: LoginDetails = Body(...)):
+# 	auth_details = jsonable_encoder(auth_details)
+# 	user = await mongodb.db["Users"].find_one({"username": auth_details['username']})
+# 	if (user is None) or (not auth_handler.verify_password(auth_details['password'], user['password'])):
+# 		raise HTTPException(status_code=401, detail='Invalid username and/or password')
+# 	token = auth_handler.encode_token(user['_id'], user['username'], user['is_admin'])
+# 	return {
+# 		"token": token
+# 	}
+
+
+@app.get("/search")
+async def search(request: Request,
+                 from_date: Optional[datetime] = None,
+                 to_date: Optional[datetime] = None,
+                 query: Optional[str] = None,
+                 is_completed: Optional[bool] = None,
+                 shop_name: Optional[str] = None,
+                 projection: Optional[List[str]] = Query(None),
+                 user: UserData = Depends(is_authenticated)):
+	path = request.url.path + "?" + request.url.query
+	cached = r.get(path)
+	print(projection)
+	if cached is not None:
+		print(f"{path} is cached.")
+		res = ujson.loads(cached)
+		return res
+	mongodb_filter = {}
+	collation = {}
+	if is_completed is None and from_date is None and to_date is None and query is None and shop_name is None:
+		return {"error": "No query parameter(s) provided."}
+	if is_completed is not None:
+		mongodb_filter["is_completed"] = is_completed
+	if shop_name is not None:
+		mongodb_filter["shop_name"] = shop_name
+	if from_date is not None and to_date is not None:
+		mongodb_filter["max_due_date"] = {
+			"$lte": to_date,
+			"$gte": from_date
+		}
+	elif from_date is not None and to_date is None:
+		mongodb_filter["max_due_date"] = {
+			"$lte": from_date,
+			"$gte": from_date
+		}
+	elif to_date is not None and from_date is None:
+		mongodb_filter["max_due_date"] = {
+			"$lte": to_date,
+			"$gte": to_date
+		}
+	print(mongodb_filter)
+	if query is not None:
+		is_int: bool = False
+		try:
+			int(query)
+		except ValueError:
+			is_int = False
+		else:
+			query = int(query)
+			is_int = True
+		if is_int:
+			mongodb_filter["receipt_id"] = query
+		else:
+			mongodb_filter["name"] = query
+			collation["locale"] = "en"
+			collation["strength"] = 1
+	proj = {"_id": False}
+	if projection is not None and len(projection) > 0:
+		for p in projection:
+			if p == "_id":
+				continue
+			proj[p] = True
+	print(mongodb_filter)
+	receipts = await mongodb.db["Receipts"].find(mongodb_filter,
+	                                             collation=collation if collation is not None and len(
+		                                             collation.keys()) > 0 else None,
+	                                             projection=proj).to_list(10000)
+
+	for receipt in receipts:
+		try:
+			receipt["max_due_date"] = receipt["max_due_date"].isoformat()
+			receipt["min_due_date"] = receipt["min_due_date"].isoformat()
+		except KeyError:
+			continue
+	try:
+		r.set(path, ujson.dumps(receipts), ex=1800, nx=True)
+	except ResponseError as e:
+		print(e)
+	finally:
+		return receipts
+
+
+@app.get("/async_etsy/sync/{etsy_connection_id}")
+async def sync(etsy_connection_id: str, background_tasks: BackgroundTasks, user: UserData = Depends(is_authenticated)):
+	is_running = r.get(f"{etsy_connection_id}:is_running")
+	if is_running == "True":
+		return {
+			"background-task": "already running"
+		}
+	background_tasks.add_task(
+		func=EtsyShopManager.syncShop,
+		etsy_connection_id=etsy_connection_id,
+		db=mongodb.db,
+		r=r
+	)
+	
 	return {
-		"token": token
+		"background-task": "processing"
 	}
 
 
+@app.get('/receipts/{etsy_connection_id}/{receipt_id}')
+async def get_receipt_by_id(etsy_connection_id: str, receipt_id: str, user: UserData = Depends(is_authenticated)):
+	etsy_api = await create_etsy_api_with_etsy_connection(mongodb.db, etsy_connection_id, 1)
+	# shop_id = etsy_connection["etsy_shop_id"]
+	receipt = etsy_api.getShop_Receipt2(receipt_id)
+	print(receipt)
+	return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=receipt)
+
+
+@app.get('/listings/{etsy_connection_id}/{listing_id}')
+async def get_listing(etsy_connection_id: str, listing_id: int):
+	etsy_api = await create_etsy_api_with_etsy_connection(mongodb.db, etsy_connection_id, 1)
+	etsy_api.getListing(listing_id)
+
+
+@app.get('/shipping/templates/{etsy_connection_id}/{shipping_template_id}')
+async def get_shipping_template(etsy_connection_id: str, shipping_template_id: int):
+	etsy_api = await create_etsy_api_with_etsy_connection(mongodb.db, etsy_connection_id, 1)
+	etsy_api.getShippingTemplate(shipping_template_id)
+
+
+@app.get("/shops/{etsy_connection_id}/receipts/{status}/")
+async def get_receipts_by_status(etsy_connection_id: str, status: ReceiptStatus):
+	(etsy_connection, etsy_api) = await create_etsy_api_with_etsy_connection(mongodb.db, etsy_connection_id)
+	shop_id = etsy_connection["etsy_shop_id"]
+	etsy_api.findAllShopReceiptsByStatus(shop_id, status)
+
+
 @app.get("/receipts/{etsy_connection_id}")
-async def get_all_receipts_by_etsy_connection(etsy_connection_id: str, user: UserData = Depends(is_authenticated)):
+async def get_all_receipts_by_etsy_connection(etsy_connection_id: str,
+                                              min_created: Optional[int] = None,
+                                              max_created: Optional[int] = None,
+                                              min_last_modified: Optional[int] = None,
+                                              max_last_modified: Optional[int] = None,
+                                              was_paid: Optional[bool] = None,
+                                              was_shipped: Optional[bool] = None,
+                                              user: UserData = Depends(is_authenticated)):
 	# _id: ObjectId = ObjectId(etsy_connection_id)
 	# etsy_connection = await mongodb.db["EtsyShopConnections"].find_one({"_id": _id})
 	# etsy_api_session = EtsyAPISession(etsy_connection["etsy_oauth_token"], etsy_connection["etsy_oauth_token_secret"],
@@ -273,8 +440,14 @@ async def get_all_receipts_by_etsy_connection(etsy_connection_id: str, user: Use
 	# etsy_api = EtsyAPI(etsy_api_session.get_etsy_api_session())
 	(etsy_connection, etsy_api) = await create_etsy_api_with_etsy_connection(mongodb.db, etsy_connection_id)
 	shop_id = etsy_connection["etsy_shop_id"]
-	all_receipts = etsy_api.findAllShopReceipts(shop_id)
-	pprint.pprint(all_receipts)
+	all_receipts = etsy_api.findAllShopReceipts(shop_id,
+	                                            min_created=min_created,
+	                                            max_created=max_created,
+	                                            min_last_modified=min_last_modified,
+	                                            max_last_modified=max_last_modified,
+	                                            was_paid=was_paid,
+	                                            was_shipped=was_shipped)
+	# pprint.pprint(all_receipts)
 	return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=all_receipts)
 
 
@@ -311,18 +484,21 @@ class ConnectEtsyAppDetails(BaseModel):
 async def connect_etsy_shop(app_details: ConnectEtsyAppDetails = Body(...), user: UserData = Depends(is_authenticated)):
 	print(app_details)
 	request_token_dict: dict = EtsyAPISession.get_request_token(app_details.app_key, app_details.app_secret)
-	new_etsy_connection = await mongodb.db["EtsyShopConnections"].insert_one(jsonable_encoder({
+	app_details = jsonable_encoder(app_details)
+	app_details["created_at"] = datetime.utcnow()
+	new_etsy_connection = await mongodb.db["EtsyShopConnections"].insert_one({
 		"verified": False,
-		"app_key": app_details.app_key,
-		"app_secret": app_details.app_secret,
+		"app_key": app_details["app_key"],
+		"app_secret": app_details["app_secret"],
 		"request_temporary_oauth_token": request_token_dict["oauth_token"],
-		"request_temporary_oauth_token_secret": request_token_dict["oauth_token_secret"]
-	}))
+		"request_temporary_oauth_token_secret": request_token_dict["oauth_token_secret"],
+		"created_at": app_details["created_at"]
+	})
 	response = {
 		"login_url": request_token_dict["login_url"],
 		"etsy_connection_documentid": str(new_etsy_connection.inserted_id)
 	}
-	return JSONResponse(status_code=status.HTTP_201_CREATED, content=response)
+	return JSONResponse(status_code=status.HTTP_200_OK, content=response)
 
 
 class VerifyEtsyConnection(BaseModel):
@@ -336,6 +512,8 @@ async def verify_request_tokens(verify_body: VerifyEtsyConnection = Body(...),
                                 user: UserData = Depends(is_authenticated)):
 	etsy_connection_id: ObjectId = ObjectId(verify_body.etsy_connection_id)
 	etsy_connection = await mongodb.db["EtsyShopConnections"].find_one({"_id": etsy_connection_id})
+	if etsy_connection is None or etsy_connection["verified"]:
+		raise HTTPException(status_code=400, detail="Etsy connection id not found or it has already been connected.")
 	access_token_dict: dict = EtsyAPISession.get_access_token(
 		resource_owner_key=verify_body.temp_oauth_token,
 		resource_owner_secret=etsy_connection['request_temporary_oauth_token_secret'],
@@ -343,11 +521,15 @@ async def verify_request_tokens(verify_body: VerifyEtsyConnection = Body(...),
 		client_key=etsy_connection['app_key'],
 		client_secret=etsy_connection['app_secret']
 	)
+	if len(access_token_dict.keys()) == 0:
+		await mongodb.db["EtsyShopConnections"].delete_one({"_id": etsy_connection_id})
+		raise HTTPException(status_code=400, detail="Request token has expired.")
 	update_etsy_connection_result = await mongodb.db["EtsyShopConnections"].update_one({"_id": etsy_connection_id}, {
 		"$set": {
 			"etsy_oauth_token": access_token_dict["oauth_token"],
 			"etsy_oauth_token_secret": access_token_dict["oauth_token_secret"],
-			"verified": True
+			"verified": True,
+			"updated_at": datetime.utcnow()
 		}
 	})
 	if update_etsy_connection_result.modified_count == 1:
@@ -362,12 +544,13 @@ async def verify_request_tokens(verify_body: VerifyEtsyConnection = Body(...),
 		shop_url = None
 		shop_banner_url = None
 		shop_icon_url = None
-		if all_shops.json()['count'] != 0:
-			shop_id = all_shops.json()['results'][0]['shop_id']
-			shop_name = all_shops.json()['results'][0]['shop_name']
-			shop_url = all_shops.json()['results'][0]['url']
-			shop_banner_url = all_shops.json()['results'][0]['image_url_760x100']
-			shop_icon_url = all_shops.json()['results'][0]['icon_url_fullxfull']
+		all_shops_json = all_shops.json()
+		if all_shops_json['count'] != 0:
+			shop_id = all_shops_json['results'][0]['shop_id']
+			shop_name = all_shops_json['results'][0]['shop_name']
+			shop_url = all_shops_json['results'][0]['url']
+			shop_banner_url = all_shops_json['results'][0]['image_url_760x100']
+			shop_icon_url = all_shops_json['results'][0]['icon_url_fullxfull']
 		user = etsy_api.getUser()
 		etsy_owner_email = None
 		if user.json()['count'] != 0:
@@ -381,13 +564,13 @@ async def verify_request_tokens(verify_body: VerifyEtsyConnection = Body(...),
 					"etsy_shop_name": shop_name,
 					"shop_url": shop_url,
 					"shop_icon_url": shop_icon_url,
-					"shop_banner_url": shop_banner_url
+					"shop_banner_url": shop_banner_url,
+					"updated_at": datetime.utcnow()
 				}
 			})
 		if update_etsy_connection_shop_details_result.modified_count == 1:
-			return JSONResponse(status_code=status.HTTP_202_ACCEPTED)
-		else:
-			return JSONResponse(status_code=status.HTTP_204_NO_CONTENT)
+			return JSONResponse(status_code=status.HTTP_200_OK, content={"detail": "Successfully connected to Etsy."})
+		
 
 
 @app.get("/connections/etsy", response_model=List[EtsyShopConnection])
@@ -399,7 +582,7 @@ async def get_all_etsy_connections(user: UserData = Depends(is_authenticated)):
 		"etsy_oauth_token_secret": False,
 		"request_temporary_oauth_token": False,
 		"request_temporary_oauth_token_secret": False
-	}).to_list(10)
+	}).to_list(100)
 	pprint.pprint(etsy_connections)
 	return etsy_connections
 

@@ -1,21 +1,80 @@
 import os
-import datetime
+from datetime import datetime
 from enum import Enum
 from typing import Optional, List
 import secrets
+from urllib.parse import urlparse
+
 import motor.motor_asyncio
+import redis
 from bson import ObjectId
-from dotenv import load_dotenv
+
 from pydantic import BaseModel, Field, EmailStr, AnyHttpUrl, validator
 from oauth2 import get_password_hash
-
-load_dotenv("../.env")
-# auth_handler = AuthHandler()
+from config import MONGODB_URI, REDIS_URL
 
 
-class MongoDBConnection:
+
+# class MongoDBConnection:
+# 	def __init__(self):
+# 		self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URI)
+# 		self.db = self.client.multiorder
+
+class MyRedis(object):
+	_instance = None
+	
+	def __new__(cls, *args, **kwargs):
+		if cls._instance is None:
+			print("#===================#")
+			cls._instance = object.__new__(cls)
+			try:
+				print("Connecting to Redis...")
+				url = urlparse(REDIS_URL)
+				r = redis.Redis(host=url.hostname, 
+				                port=url.port, 
+				                username=url.username, 
+				                password=url.password,
+				                ssl=True,
+				                ssl_cert_reqs=None, decode_responses=True)
+				MyRedis._instance.r = r
+				redis_info = MyRedis._instance.r.info()
+				MyRedis._instance.r.ping()
+			except Exception as e:
+				print("Error: Redis connection not established {}".format(e))
+			else:
+				print("Redis connection established\nconnected clients: {}\nredis_version: {}".format(redis_info["connected_clients"],
+				                                                                                      redis_info["redis_version"]))
+			print("#===================#")
+		return cls._instance
+	
 	def __init__(self):
-		self.client = motor.motor_asyncio.AsyncIOMotorClient(os.getenv('MONGODB_URI'))
+		self.r: redis.Redis = self._instance.r
+		
+	def __del__(self):
+		self.r.close()
+
+
+class MongoDB(object):
+	_instance = None
+	
+	def __new__(cls):
+		if cls._instance is None:
+			print("#===================#")
+			print("No connected MongoDB connection found.")
+			cls._instance = object.__new__(cls)
+			try:
+				print("Connecting to MongoDB")
+				mongodb = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URI)
+				MongoDB._instance.client = mongodb
+			except Exception as e:
+				print("Error: MongoDB connection not established {}".format(e))
+			else:
+				print("MongoDB connection successfully established.")
+			print("#===================#")
+		return cls._instance
+	
+	def __init__(self):
+		self.client = self._instance.client
 		self.db = self.client.multiorder
 
 
@@ -44,7 +103,7 @@ class CreateReceiptNote(BaseModel):
 	receipt_id: str
 	note: str
 	status: ReceiptNoteStatus = Field(default=ReceiptNoteStatus.uncompleted)
-	
+
 
 class UpdateReceiptNote(BaseModel):
 	receipt_id: str
@@ -72,6 +131,7 @@ class InvitationEmail(BaseModel):
 	email: EmailStr = Field(allow_mutation=False, unique=True)
 	verification_code: str = None
 	is_registered: bool = False
+	created_at: datetime = Field(default=datetime.utcnow())
 	
 	@validator('verification_code', pre=True, always=True)
 	def generate_verification_code(cls, v) -> str:
@@ -100,6 +160,7 @@ class User(BaseModel):
 	password: str = Field(...)
 	scopes: List[Roles] = Field(default=[Roles.user])
 	verification_code: str = Field(...)
+	created_at: datetime = Field(default=datetime.utcnow())
 	
 	# @validator('is_admin', pre=True, always=True)
 	# def default_is_admin(cls, v):
@@ -136,7 +197,7 @@ class EtsyShopConnection(BaseModel):
 	request_temporary_oauth_token: Optional[str]
 	request_temporary_oauth_token_secret: Optional[str]
 	verified: bool = Field(default=False)
-	createdAt: datetime.datetime = Field(default=datetime.datetime.now())
+	created_at: datetime = Field(default=datetime.utcnow())
 	
 	class Config:
 		allow_population_by_field_name = True

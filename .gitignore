@@ -6,3 +6,11 @@ __pycache__
 localhost+1.pem
 localhost+1-key.pem
 app
+test.json
+transactions.json
+.vscode
+old_requirements.txt
+routers
+core
+controllers
+api
