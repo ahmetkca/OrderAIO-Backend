@@ -2,8 +2,18 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 # from apscheduler.jobstores.mongodb import MongoDBJobStore
 
 
-class MyScheduler:
-	def __init__(self, mongodb) -> None:
+class MyScheduler(object):
+	_instance = None
+	
+	def __new__(cls, *args, **kwargs):
+		if cls._instance is None:
+			cls._instance = object.__new__(cls)
+			print("No Scheduler Found.")
+			print("Creating a new Scheduler.")
+			MyScheduler._instance.scheduler = AsyncIOScheduler()
+		return cls._instance
+	
+	def __init__(self) -> None:
 		# jobstores = {
 		# 	"mongodb": MongoDBJobStore(
 		# 		database="multiorder",
@@ -23,5 +33,5 @@ class MyScheduler:
 		# 	                       ssl=True,
 		# 	                       ssl_cert_reqs=None)
 		# }
-		self.scheduler = AsyncIOScheduler()
+		self.scheduler = self._instance.scheduler
 		# self.scheduler.start()

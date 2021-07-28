@@ -8,7 +8,7 @@ import asyncio
 async def register_shop_jobs():
     mongodb = MongoDB()
     r = MyRedis().r
-    myScheduler = MyScheduler(mongodb)
+    myScheduler = MyScheduler()
     myScheduler.scheduler.start()
     etsy_connections = await mongodb.db["EtsyShopConnections"].find().to_list(100)
     job_offset = 0
@@ -38,8 +38,8 @@ def on_starting(server):
     loop = asyncio.get_event_loop()
     try:
         loop.run_until_complete(register_shop_jobs())
-    finally:
-        loop.close()
+    except Exception:
+        pass
 
 
 def on_reload(server):

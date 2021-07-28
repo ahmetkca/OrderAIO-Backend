@@ -32,6 +32,7 @@ from config import FRONTEND_URI, JWT_SECRET, MAIL_EMAIL, MAIL_HOST, MAIL_PASSWOR
 
 mongodb = MongoDB()
 r = MyRedis().r
+myScheduler = MyScheduler()
 
 context = ssl.create_default_context()
 email_invitation_link = FRONTEND_URI + "/#/register?email={email}&verification_code={verification_code}"
@@ -49,7 +50,6 @@ app = FastAPI()
 
 # @app.on_event("startup")
 # async def startup_event():
-# 	myScheduler = MyScheduler(mongodb)
 # 	myScheduler.scheduler.start()
 # 	etsy_connections = await mongodb.db["EtsyShopConnections"].find().to_list(100)
 # 	job_offset = 0
