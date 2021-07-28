@@ -11,6 +11,7 @@ from fastapi import FastAPI, Depends, Body, HTTPException, status, BackgroundTas
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
 from redis import ResponseError
 from starlette.middleware.cors import CORSMiddleware
@@ -28,7 +29,6 @@ from schemas import UserData, ReceiptStatus
 from EtsyAPI import EtsyAPI, create_etsy_api_with_etsy_connection
 from MyScheduler import MyScheduler
 from config import FRONTEND_URI, JWT_SECRET, MAIL_EMAIL, MAIL_HOST, MAIL_PASSWORD, MAIL_PORT, SCHEDULED_JOB_INTERVAL
-
 
 mongodb = MongoDB()
 r = MyRedis().r
@@ -48,26 +48,26 @@ print(origins)
 app = FastAPI()
 
 
-# @app.on_event("startup")
-# async def startup_event():
-# 	myScheduler.scheduler.start()
-# 	etsy_connections = await mongodb.db["EtsyShopConnections"].find().to_list(100)
-# 	job_offset = 0
-# 	for etsy_connection in etsy_connections:
-# 		_id = str(etsy_connection["_id"])
-# 		myScheduler.scheduler.add_job(
-# 			EtsyShopManager.syncShop,
-# 			"interval",
-# 			minutes=SCHEDULED_JOB_INTERVAL + job_offset,
-# 			kwargs={"etsy_connection_id": _id,
-# 			        "db": mongodb.db,
-# 			        "r": r},
-# 			id=f"{_id}:syncShopProcess",
-# 			name=f"{_id}:syncShopProcess",
-# 			# jobstore="mongodb"
-# 		)
-# 		job_offset += 5
-# 	myScheduler.scheduler.print_jobs()
+@app.on_event("startup")
+async def startup_event():
+	myScheduler.scheduler.start()
+	etsy_connections = await mongodb.db["EtsyShopConnections"].find().to_list(100)
+	job_offset = 0
+	for etsy_connection in etsy_connections:
+		_id = str(etsy_connection["_id"])
+		myScheduler.scheduler.add_job(
+			EtsyShopManager.syncShop,
+			"interval",
+			minutes=SCHEDULED_JOB_INTERVAL + job_offset,
+			kwargs={"etsy_connection_id": _id,
+			        "db": mongodb.db,
+			        "r": r},
+			id=f"{_id}:syncShopProcess",
+			name=f"{_id}:syncShopProcess",
+			# jobstore="mongodb"
+		)
+		job_offset += 5
+	myScheduler.scheduler.print_jobs()
 
 
 @app.on_event("shutdown")

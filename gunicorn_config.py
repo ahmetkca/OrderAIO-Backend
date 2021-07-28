@@ -6,13 +6,14 @@ import pymongo
 from config import MONGODB_URI
 
 
-def on_starting(server):
+def when_ready(server):
     """
     Do something on server start
     """
-    print("Server has started")
-    print("Gunicorn on_starting event is working................")
-
+    # print("Server has started")
+    # print("Gunicorn on_starting event is working................")
+    print("setting up scheduled jobs")
+    
     temp_mongodb = pymongo.MongoClient(MONGODB_URI)
     temp_db = temp_mongodb.multiorder
     mongodb = MongoDB()
