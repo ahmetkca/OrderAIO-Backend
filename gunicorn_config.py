@@ -36,6 +36,7 @@ def on_starting(server):
         )
         job_offset += 5
     myScheduler.scheduler.print_jobs()
+    temp_mongodb.close()
 
 
 def on_reload(server):
