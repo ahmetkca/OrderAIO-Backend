@@ -2,16 +2,12 @@ from MyScheduler import MyScheduler
 from database import MongoDB, MyRedis
 from config import SCHEDULED_JOB_INTERVAL
 from EtsyShopManager import EtsyShopManager
+import asyncio
 
 
-def on_starting(server):
-    """
-    Do something on server start
-    """
+async def register_shop_jobs():
     mongodb = MongoDB()
     r = MyRedis().r
-    print("Server has started")
-    print("Gunicorn on_starting event is working................")
     myScheduler = MyScheduler(mongodb)
     myScheduler.scheduler.start()
     etsy_connections = await mongodb.db["EtsyShopConnections"].find().to_list(100)
@@ -31,6 +27,19 @@ def on_starting(server):
         )
         job_offset += 5
     myScheduler.scheduler.print_jobs()
+
+
+def on_starting(server):
+    """
+    Do something on server start
+    """
+    print("Server has started")
+    print("Gunicorn on_starting event is working................")
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(register_shop_jobs())
+    finally:
+        loop.close()
 
 
 def on_reload(server):
