@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-SCHEDULED_JOB_INTERVAL = 25
+SCHEDULED_JOB_INTERVAL = 15
 
 NO_CONCURRENT = 10
 LIMIT = 100

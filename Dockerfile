@@ -1,6 +1,6 @@
 FROM python:3.7
 
-COPY requirements.txt /app/requirements.txt
+COPY this_is_old_requirements.txt /app/requirements.txt
 
 RUN pip3 install -r ./app/requirements.txt
 

@@ -50,6 +50,7 @@ app = FastAPI()
 @app.on_event("startup")
 async def startup_event():
 	myScheduler = MyScheduler(mongodb)
+	myScheduler.scheduler.start()
 	etsy_connections = await mongodb.db["EtsyShopConnections"].find().to_list(100)
 	job_offset = 0
 	for etsy_connection in etsy_connections:
@@ -61,11 +62,13 @@ async def startup_event():
 			kwargs={"etsy_connection_id": _id,
 			        "db": mongodb.db,
 			        "r": r},
-			id=f"{_id}",
-			name=f"{_id}",
+			id=f"{_id}:syncShopProcess",
+			name=f"{_id}:syncShopProcess",
+			# jobstore="mongodb"
 		)
 		job_offset += 5
 	myScheduler.scheduler.print_jobs()
+	
 
 
 @app.on_event("shutdown")
