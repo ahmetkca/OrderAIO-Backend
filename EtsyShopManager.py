@@ -59,7 +59,7 @@ class EtsyShopManager:
 				url=EtsyUrl.getShop_Receipt2(unpaid_from_redis),
 				params=my_params
 			)
-			logging.info(f"{len()} pages of fetched unpaid receipts found")
+			logging.info(f"{len(unpaid_responses)} pages of fetched receipts found.")
 			for res in unpaid_responses:
 				res_json = res.json()
 				results: List[dict] = res_json["results"]
