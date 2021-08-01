@@ -60,19 +60,26 @@ class EtsyShopManager:
 				params=my_params
 			)
 			logging.info(f"{len(unpaid_responses)} pages of fetched receipts found.")
+			
 			for res in unpaid_responses:
+				if res.status_code != 200:
+					continue
 				res_json = res.json()
 				results: List[dict] = res_json["results"]
-				for receipt in results:
+				pop_list = []
+				for i, receipt in enumerate(results):
 					logging.info(receipt['receipt_id'])
 					was_paid: bool = receipt["was_paid"]
 					logging.info(f"was_paid: {was_paid}")
 					paid_tzs: Optional[int] = receipt["Transactions"][0]["paid_tsz"]
 					if not was_paid or paid_tzs is None:
-						# not_paid_receipt = results.pop(i)
+						logging.info(f"{receipt['receipt_id']} : was_paid={was_paid} : paid_tzs={paid_tzs}")
+						pop_list.append(i)
 						receipts_not_paid.append(receipt["receipt_id"])
 						continue
 					calculate_max_min_due_date(receipt)
+				for pop_index in pop_list:
+					results.pop(pop_index)
 				receipts_to_be_inserted = numpy.concatenate((receipts_to_be_inserted, results))
 		return receipts_not_paid, receipts_to_be_inserted
 	
@@ -88,17 +95,24 @@ class EtsyShopManager:
 		)
 		
 		for res in receipt_responses:
+			if res.status_code != 200:
+				continue
 			res_json = res.json()
 			results: List[dict] = res_json["results"]
-			for receipt in results:
+			pop_list = []
+			for i, receipt in enumerate(results):
 				logging.info(receipt['receipt_id'])
 				was_paid: bool = receipt["was_paid"]
 				logging.info(f"was_paid: {was_paid}")
 				paid_tzs: Optional[int] = receipt["Transactions"][0]["paid_tsz"]
 				if not was_paid or paid_tzs is None:
+					logging.info(f"{receipt['receipt_id']} : was_paid={was_paid} : paid_tzs={paid_tzs}")
+					pop_list.append(i)
 					receipts_not_paid.append(receipt["receipt_id"])
 					continue
 				calculate_max_min_due_date(receipt)
+			for pop_index in pop_list:
+				results.pop(pop_index)
 			receipts_to_be_inserted = numpy.concatenate((receipts_to_be_inserted, results))
 		return receipts_not_paid, receipts_to_be_inserted
 	
@@ -136,6 +150,8 @@ class EtsyShopManager:
 			receipts_not_paid, receipts_to_be_inserted = await EtsyShopManager.check_unpaids(etsy_connection_id, asyncEtsyApi, params, r)
 			unpaid_receipts, r_to_be_inserted = await EtsyShopManager.check_for_new_orders(asyncEtsyApi, params)
 			receipts_not_paid = receipts_not_paid + unpaid_receipts
+			receipts_not_paid = set(receipts_not_paid)
+			receipts_not_paid = list(receipts_not_paid)
 			r.set(f"{etsy_connection_id}:unpaid_receipts", ','.join(str(not_paid_receipt) for not_paid_receipt in receipts_not_paid))
 			receipts_to_be_inserted = numpy.concatenate((receipts_to_be_inserted, r_to_be_inserted))
 			

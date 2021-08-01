@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 from typing import List
+from MyLogger import Logger
+logging = Logger().logging
 
 
 def bday(from_date: datetime, n_days: int) -> datetime:
@@ -41,8 +43,8 @@ def find_smaller_min_processing(receipt: dict) -> int:
 
 
 def calculate_max_min_due_date(receipt: dict) -> None:
-	print(f"number of transactions: {len(receipt['Transactions'])}")
-	print(f"number of listings: {len(receipt['Listings'])}")
+	logging.info(f"number of transactions: {len(receipt['Transactions'])}")
+	logging.info(f"number of listings: {len(receipt['Listings'])}")
 	# pprint.pprint(receipt['Transactions'])
 	receipt["is_completed"] = False
 	paid_date = datetime.fromtimestamp(int(receipt["Transactions"][0]["paid_tsz"]))
@@ -52,9 +54,9 @@ def calculate_max_min_due_date(receipt: dict) -> None:
 	min_due_date = bday(paid_date, min_pro_n_day)
 	receipt["max_due_date"] = max_due_date
 	receipt["min_due_date"] = min_due_date
-	print(f"{receipt['receipt_id']}'s due dates:")
-	print(f"\tmax_due_date => is {paid_date} +{max_pro_n_day} business day ({max_due_date})")
-	print(f"\tmin_due_date => is {paid_date} +{min_pro_n_day} business day ({min_due_date})")
+	logging.info(f"{receipt['receipt_id']}'s due dates:")
+	logging.info(f"\tmax_due_date => is {paid_date} +{max_pro_n_day} business day ({max_due_date})")
+	logging.info(f"\tmin_due_date => is {paid_date} +{min_pro_n_day} business day ({min_due_date})")
 
 
 if __name__ == '__main__':
