@@ -1,5 +1,7 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 # from apscheduler.jobstores.mongodb import MongoDBJobStore
+from MyLogger import Logger
+logging = Logger().logging
 
 
 class MyScheduler(object):
@@ -7,9 +9,8 @@ class MyScheduler(object):
 	
 	def __new__(cls, *args, **kwargs):
 		if cls._instance is None:
+			logging.info("No Scheduler found creating one.")
 			cls._instance = object.__new__(cls)
-			print("No Scheduler Found.")
-			print("Creating a new Scheduler.")
 			MyScheduler._instance.scheduler = AsyncIOScheduler()
 		return cls._instance
 	
@@ -33,5 +34,15 @@ class MyScheduler(object):
 		# 	                       ssl=True,
 		# 	                       ssl_cert_reqs=None)
 		# }
+		self.jobs = {}
 		self.scheduler = self._instance.scheduler
 		# self.scheduler.start()
+
+	def add_job(self, my_id, *args, **kwargs):
+		try:
+			self.jobs[my_id]
+		except KeyError:
+			logging.info(f"No job with the id {my_id} found. Adding to the job list.")
+			self.scheduler.add_job(*args, **kwargs)
+		else:
+			logging.info(f"There is already a job with the id {my_id}.")

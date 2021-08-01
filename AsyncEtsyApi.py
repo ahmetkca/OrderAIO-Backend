@@ -9,6 +9,10 @@ from config import ETSY_API_BASE_URI, NO_CONCURRENT, LIMIT
 from bson import ObjectId
 from httpx import Response
 
+from MyLogger import Logger
+logging = Logger().logging
+logging.info(f"{__name__}'s logger successfully created.")
+
 
 class Method(Enum):
 	get = "GET"
@@ -38,13 +42,13 @@ class AsyncEtsy:
 		if params is None:
 			params = {"limit": LIMIT}
 		url = ETSY_API_BASE_URI + url
-		print(f"Starting to fetch ({url})")
+		logging.info(f"Starting to fetch ({url})")
 		params["limit"] = LIMIT
 		async with AsyncOAuth1Client(self.client_id, self.client_secret, self.token, self.token_secret) as etsy:
 			# print(params)
 			res = await etsy.request(method=method.value, url=url, params=params, timeout=None)
 			# print(f"({url}) Fetched page #{res.json()['params']['page']} {res.status_code}")
-			print(f"Done ... ({url}) ({res.status_code})")
+			logging.info(f"Done ... ({url}) ({res.status_code})")
 		return res
 	
 	async def requestByPage(self, method, url, params, page):
@@ -60,7 +64,7 @@ class AsyncEtsy:
 			params = {}
 		count_res = await self.request(method, url, params)
 		count = count_res.json()["count"]
-		print(f"Count {count}")
+		logging.info(f"Total {count} item has been found for {url}")
 		dltasks = set()
 		next_page = 1
 		while next_page <= ceil(count / LIMIT):
@@ -79,7 +83,7 @@ class AsyncEtsy:
 		done, pending = await asyncio.wait(dltasks)
 		t: Task
 		for t in done:
-			print(t)
+			logging.info(t)
 			res: Response = t.result()
 			responses.append(res)
 		return responses
@@ -109,14 +113,14 @@ class AsyncEtsy:
 			await asyncio.sleep(0.15)
 			receipt_ids_index += 1
 		
-		print("Last transactions")
+		logging.info("Last transactions")
 		if len(dltasks) <= 0:
 			return transactions_by_receipt_id
 		done, pending = await asyncio.wait(dltasks)
 		t: Task
 		for t in done:
 			mongodb_id, receipt_id = t.get_name().split(":")
-			print(f"Transaction for Receipt_id: {receipt_id}|{mongodb_id} is done.")
+			logging.info(f"Transaction for Receipt_id: {receipt_id}|{mongodb_id} is done.")
 			res: Response = t.result()
 			transactions_by_receipt_id[receipt_id] = {
 				"mongodb_id": mongodb_id,
@@ -126,7 +130,7 @@ class AsyncEtsy:
 		
 	@staticmethod
 	async def asyncLoop(f, **kwargs):
-		print(kwargs)
+		logging.info(kwargs)
 		loop = asyncio.get_running_loop()
 		# await f(loop, **kwargs)
 		done, pending = None, None

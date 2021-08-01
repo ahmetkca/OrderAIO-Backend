@@ -6,6 +6,10 @@ import numpy
 from bson import ObjectId
 
 from AsyncEtsyApi import AsyncEtsy, Method, EtsyUrl
+from MyLogger import Logger
+logging = Logger().logging
+
+from database import MongoDB, MyRedis
 
 
 class EtsyShopManager:
@@ -41,6 +45,7 @@ class EtsyShopManager:
 	
 	@staticmethod
 	async def check_unpaids(etsy_connection_id, asyncEtsyApi, params, r):
+		logging.info("Checking unpaid receipts")
 		my_params = dict(params)
 		my_params.pop("min_created", None)
 		receipts_not_paid = []
@@ -54,17 +59,18 @@ class EtsyShopManager:
 				url=EtsyUrl.getShop_Receipt2(unpaid_from_redis),
 				params=my_params
 			)
+			logging.info(f"{len()} pages of fetched unpaid receipts found")
 			for res in unpaid_responses:
 				res_json = res.json()
 				results: List[dict] = res_json["results"]
-				for i, receipt in enumerate(results):
-					print(receipt['receipt_id'])
+				for receipt in results:
+					logging.info(receipt['receipt_id'])
 					was_paid: bool = receipt["was_paid"]
-					print(f"was_paid: {was_paid}")
+					logging.info(f"was_paid: {was_paid}")
 					paid_tzs: Optional[int] = receipt["Transactions"][0]["paid_tsz"]
 					if not was_paid or paid_tzs is None:
-						not_paid_receipt = results.pop(i)
-						receipts_not_paid.append(not_paid_receipt["receipt_id"])
+						# not_paid_receipt = results.pop(i)
+						receipts_not_paid.append(receipt["receipt_id"])
 						continue
 					calculate_max_min_due_date(receipt)
 				receipts_to_be_inserted = numpy.concatenate((receipts_to_be_inserted, results))
@@ -84,24 +90,25 @@ class EtsyShopManager:
 		for res in receipt_responses:
 			res_json = res.json()
 			results: List[dict] = res_json["results"]
-			for i, receipt in enumerate(results):
-				print(receipt['receipt_id'])
+			for receipt in results:
+				logging.info(receipt['receipt_id'])
 				was_paid: bool = receipt["was_paid"]
-				print(f"was_paid: {was_paid}")
+				logging.info(f"was_paid: {was_paid}")
 				paid_tzs: Optional[int] = receipt["Transactions"][0]["paid_tsz"]
 				if not was_paid or paid_tzs is None:
-					not_paid_receipt = results.pop(i)
-					receipts_not_paid.append(not_paid_receipt["receipt_id"])
+					receipts_not_paid.append(receipt["receipt_id"])
 					continue
 				calculate_max_min_due_date(receipt)
 			receipts_to_be_inserted = numpy.concatenate((receipts_to_be_inserted, results))
 		return receipts_not_paid, receipts_to_be_inserted
 	
 	@staticmethod
-	async def syncShop(etsy_connection_id: str, db, r):
+	async def syncShop(etsy_connection_id: str):
+		db = MongoDB().db
+		r = MyRedis().r
 		try:
 			is_running = r.get(f"{etsy_connection_id}:is_running")
-			print(f"is_running: {is_running}")
+			logging.info(f"is_running: {is_running}")
 			if is_running == "True":
 				return {
 					"background-task": "already running"
@@ -114,14 +121,14 @@ class EtsyShopManager:
 			}
 			if last_updated is not None:
 				last_updated = int(last_updated)
-				print("last_updated is not None, setting min_created")
+				logging.info("last_updated is not None, setting min_created")
 				params["min_created"] = last_updated
 			current_time = int(datetime.now().timestamp())
 			params["max_created"] = current_time
 			if last_updated is not None:
-				print(f"From = {datetime.fromtimestamp(last_updated)}\nTo = {datetime.fromtimestamp(current_time)}")
+				logging.info(f"From = {datetime.fromtimestamp(last_updated)}\nTo = {datetime.fromtimestamp(current_time)}")
 			else:
-				print(f"From = -\nTo = {datetime.fromtimestamp(current_time)}")
+				logging.info(f"From = -\nTo = {datetime.fromtimestamp(current_time)}")
 			
 			asyncEtsyApi = await AsyncEtsy.getAsyncEtsyApi(etsy_connection_id, db)
 			etsyShopManager = EtsyShopManager(asyncEtsyApi.shop_id)
@@ -135,11 +142,11 @@ class EtsyShopManager:
 			receipts_to_be_inserted = receipts_to_be_inserted.tolist()
 			mongodb_result = await etsyShopManager.insert_receipts(receipts_to_be_inserted, db)
 			if len(mongodb_result) == len(receipts_to_be_inserted):
-				print("successfully inserted all receipts")
-				print("setting last_updated")
+				logging.info("successfully inserted all receipts")
+				logging.info("setting last_updated")
 				r.set(f"{etsy_connection_id}:last_updated", current_time)
 		except Exception as e:
-			print(e)
+			logging.exception(e)
 			pass
 		finally:
 			r.set(f"{etsy_connection_id}:is_running", "False")

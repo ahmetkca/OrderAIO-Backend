@@ -58,6 +58,9 @@ class EtsyAPI:
 	
 	def getShop_Receipt2(self, receipt_id: int):
 		response = self.__session.get(f"{ETSY_API_BASE_URI}/receipts/{receipt_id}")
+		print(response.text)
+		
+		print(response.status_code)
 		res_json = response.json()
 		pprint.pprint(res_json)
 		return res_json["results"]

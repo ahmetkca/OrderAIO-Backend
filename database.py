@@ -1,4 +1,3 @@
-import os
 from datetime import datetime
 from enum import Enum
 from typing import Optional, List
@@ -13,11 +12,6 @@ from pydantic import BaseModel, Field, EmailStr, AnyHttpUrl, validator
 from oauth2 import get_password_hash
 from config import MONGODB_URI, REDIS_TLS_URL
 
-
-# class MongoDBConnection:
-# 	def __init__(self):
-# 		self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URI)
-# 		self.db = self.client.multiorder
 
 class MyRedis(object):
 	_instance = None
@@ -77,6 +71,12 @@ class MongoDB(object):
 		self.client = self._instance.client
 		self.db = self.client.multiorder
 
+	@staticmethod
+	def close_and_destroy():
+		if MongoDB._instance is not None:
+			MongoDB._instance.client.close()
+			MongoDB._instance = None
+
 
 class PyObjectId(ObjectId):
 	@classmethod
@@ -100,20 +100,20 @@ class ReceiptNoteStatus(str, Enum):
 
 
 class CreateReceiptNote(BaseModel):
-	receipt_id: str
+	receipt_id: int
 	note: str
 	status: ReceiptNoteStatus = Field(default=ReceiptNoteStatus.uncompleted)
 
 
 class UpdateReceiptNote(BaseModel):
-	receipt_id: str
+	receipt_id: int
 	note: Optional[str]
 	status: Optional[ReceiptNoteStatus]
 
 
 class ReceiptNote(BaseModel):
 	id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-	receipt_id: str
+	receipt_id: int
 	created_by: str
 	updated_by: Optional[str]
 	note: str

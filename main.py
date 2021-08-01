@@ -11,7 +11,6 @@ from fastapi import FastAPI, Depends, Body, HTTPException, status, BackgroundTas
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
 from redis import ResponseError
 from starlette.middleware.cors import CORSMiddleware
@@ -28,7 +27,10 @@ from oauth2 import (oauth2_schema,
 from schemas import UserData, ReceiptStatus
 from EtsyAPI import EtsyAPI, create_etsy_api_with_etsy_connection
 from MyScheduler import MyScheduler
-from config import FRONTEND_URI, JWT_SECRET, MAIL_EMAIL, MAIL_HOST, MAIL_PASSWORD, MAIL_PORT, SCHEDULED_JOB_INTERVAL
+from config import FRONTEND_URI, JWT_SECRET, MAIL_EMAIL, MAIL_HOST, MAIL_PASSWORD, MAIL_PORT, SCHEDULED_JOB_INTERVAL, SCHEDULED_JOB_OFFSET
+from MyLogger import Logger
+logging = Logger().logging
+logging.info("Logging singleton test message.")
 
 mongodb = MongoDB()
 r = MyRedis().r
@@ -50,23 +52,26 @@ app = FastAPI()
 
 @app.on_event("startup")
 async def startup_event():
-	myScheduler.scheduler.start()
+	logging.info("FastAPI startup_event")
 	etsy_connections = await mongodb.db["EtsyShopConnections"].find().to_list(100)
 	job_offset = 0
+	myScheduler.scheduler.start()
 	for etsy_connection in etsy_connections:
 		_id = str(etsy_connection["_id"])
-		myScheduler.scheduler.add_job(
+		myScheduler.add_job(
+			_id,
 			EtsyShopManager.syncShop,
 			"interval",
 			minutes=SCHEDULED_JOB_INTERVAL + job_offset,
-			kwargs={"etsy_connection_id": _id,
-			        "db": mongodb.db,
-			        "r": r},
+			kwargs={"etsy_connection_id": _id},
 			id=f"{_id}:syncShopProcess",
 			name=f"{_id}:syncShopProcess",
 			# jobstore="mongodb"
 		)
-		job_offset += 5
+		logging.info(f"{etsy_connection['etsy_shop_name']} has been registered to the job list.")
+		job_offset += SCHEDULED_JOB_OFFSET
+	# from test_delete_me import test
+	# myScheduler.scheduler.add_job(test, "interval", seconds=5)
 	myScheduler.scheduler.print_jobs()
 
 
@@ -102,7 +107,7 @@ async def create_note(note_data: CreateReceiptNote = Body(...), user: UserData =
 		"created_at": datetime.now()
 	})
 	inserted_note_Data = await mongodb.db["Notes"].find_one({"_id": insert_note_data.inserted_id})
-	pprint.pprint(inserted_note_Data)
+	logging.info(inserted_note_Data)
 	return inserted_note_Data
 
 
@@ -199,7 +204,7 @@ async def auth_test(_request: Request, user: UserData = Depends(is_authenticated
 @app.post('/invite')
 async def invite(background_tasks: BackgroundTasks, invitation_details: InvitationEmail = Body(...),
                  user: UserData = Depends(is_authenticated), ):
-	print(invitation_details)
+	logging.info(invitation_details)
 	created_at = invitation_details.created_at
 	if "admin" not in user.scopes:
 		raise HTTPException(status_code=400, detail='You have no permission to use this endpoint')
@@ -250,7 +255,7 @@ async def register(register_details: User = Body(...)):
 	created_at = register_details.created_at
 	register_details = jsonable_encoder(register_details)
 	# check if the given email is in the InvitationEmails Collection
-	print(register_details)
+	logging.info(register_details)
 	
 	email_query_result = await mongodb.db["InvitationEmails"].find_one({"email": register_details["email"]})
 	if email_query_result is None:
@@ -275,9 +280,9 @@ async def register(register_details: User = Body(...)):
 			"is_registered": True
 		}
 	})
-	print(f"upserted id: {updated_email_invitation.upserted_id}")
+	logging.info(f"upserted id: {updated_email_invitation.upserted_id}")
 	find_email_invitation = await mongodb.db['InvitationEmails'].find_one({"email": email_query_result["email"]})
-	print(find_email_invitation)
+	logging.info(find_email_invitation)
 	find_email_invitation["created_at"] = find_email_invitation["created_at"].isoformat()
 	return JSONResponse(status_code=status.HTTP_200_OK, content=find_email_invitation)
 
@@ -310,9 +315,9 @@ async def search(request: Request,
                  user: UserData = Depends(is_authenticated)):
 	path = request.url.path + "?" + request.url.query
 	cached = r.get(path)
-	print(projection)
+	logging.info(projection)
 	if cached is not None:
-		print(f"{path} is cached.")
+		logging.info(f"{path} is already cached.")
 		res = ujson.loads(cached)
 		return res
 	mongodb_filter = {}
@@ -338,7 +343,7 @@ async def search(request: Request,
 			"$lte": to_date,
 			"$gte": to_date
 		}
-	print(mongodb_filter)
+	logging.info(mongodb_filter)
 	if query is not None:
 		is_int: bool = False
 		try:
@@ -360,7 +365,7 @@ async def search(request: Request,
 			if p == "_id":
 				continue
 			proj[p] = True
-	print(mongodb_filter)
+	logging.info(mongodb_filter)
 	receipts = await mongodb.db["Receipts"].find(mongodb_filter,
 	                                             collation=collation if collation is not None and len(
 		                                             collation.keys()) > 0 else None,
