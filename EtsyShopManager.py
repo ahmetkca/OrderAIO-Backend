@@ -80,11 +80,13 @@ class EtsyShopManager:
 					calculate_max_min_due_date(receipt)
 				for pop_index in pop_list:
 					results.pop(pop_index)
+				logging.info(f"Receipts to be inserted -> {[receipt['receipt_id'] for receipt in results]}")
 				receipts_to_be_inserted = numpy.concatenate((receipts_to_be_inserted, results))
 		return receipts_not_paid, receipts_to_be_inserted
 	
 	@staticmethod
 	async def check_for_new_orders(asyncEtsyApi, params):
+		logging.info("Checking for new orders.")
 		receipts_not_paid = []
 		receipts_to_be_inserted = numpy.array([])
 		receipt_responses = await AsyncEtsy.asyncLoop(
@@ -114,6 +116,8 @@ class EtsyShopManager:
 			for pop_index in pop_list:
 				results.pop(pop_index)
 			receipts_to_be_inserted = numpy.concatenate((receipts_to_be_inserted, results))
+		logging.info(receipts_not_paid)
+		logging.info(receipts_to_be_inserted)
 		return receipts_not_paid, receipts_to_be_inserted
 	
 	@staticmethod
@@ -152,6 +156,7 @@ class EtsyShopManager:
 			receipts_not_paid = receipts_not_paid + unpaid_receipts
 			receipts_not_paid = set(receipts_not_paid)
 			receipts_not_paid = list(receipts_not_paid)
+			logging.info(receipts_not_paid)
 			r.set(f"{etsy_connection_id}:unpaid_receipts", ','.join(str(not_paid_receipt) for not_paid_receipt in receipts_not_paid))
 			receipts_to_be_inserted = numpy.concatenate((receipts_to_be_inserted, r_to_be_inserted))
 			

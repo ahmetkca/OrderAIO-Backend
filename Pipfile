@@ -71,6 +71,7 @@ MarkupSafe = "==2.0.1"
 PyJWT = "==2.1.0"
 PyYAML = "==5.4.1"
 Rx = "==1.6.1"
+fastapi-mail = "*"
 
 [dev-packages]
 

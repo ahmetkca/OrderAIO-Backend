@@ -101,13 +101,14 @@ class ReceiptNoteStatus(str, Enum):
 
 class CreateReceiptNote(BaseModel):
 	receipt_id: int
-	note: str
+	note: Optional[str]
+	assigned_to: Optional[str]
 	status: ReceiptNoteStatus = Field(default=ReceiptNoteStatus.uncompleted)
 
 
 class UpdateReceiptNote(BaseModel):
-	receipt_id: int
 	note: Optional[str]
+	assigned_to: Optional[str]
 	status: Optional[ReceiptNoteStatus]
 
 
@@ -116,7 +117,8 @@ class ReceiptNote(BaseModel):
 	receipt_id: int
 	created_by: str
 	updated_by: Optional[str]
-	note: str
+	note: Optional[str]
+	assigned_to: Optional[str]
 	status: ReceiptNoteStatus = Field(default=ReceiptNoteStatus.uncompleted)
 	
 	class Config:

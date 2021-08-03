@@ -1,20 +1,23 @@
+from LabelProvider import StallionCsvFileManager, StallionLabelManager
+from MyEmailService import get_mail_service
 import ujson
 import pprint
-import smtplib
 import ssl
 from datetime import datetime, timedelta
 from typing import List, Optional
 
 import jwt
 from bson.objectid import ObjectId
-from fastapi import FastAPI, Depends, Body, HTTPException, status, BackgroundTasks, Query
+from fastapi import FastAPI, Depends, Body, HTTPException, status, BackgroundTasks, Query, UploadFile, File
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from redis import ResponseError
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
+
+from fastapi_mail import MessageSchema
 
 from EtsyAPISession import EtsyAPISession
 from EtsyShopManager import EtsyShopManager
@@ -27,7 +30,8 @@ from oauth2 import (oauth2_schema,
 from schemas import UserData, ReceiptStatus
 from EtsyAPI import EtsyAPI, create_etsy_api_with_etsy_connection
 from MyScheduler import MyScheduler
-from config import FRONTEND_URI, JWT_SECRET, MAIL_EMAIL, MAIL_HOST, MAIL_PASSWORD, MAIL_PORT, SCHEDULED_JOB_INTERVAL, SCHEDULED_JOB_OFFSET
+from config import ENV_MODE, FRONTEND_URI, JWT_SECRET, SCHEDULED_JOB_INTERVAL, SCHEDULED_JOB_OFFSET
+import tempfile
 from MyLogger import Logger
 logging = Logger().logging
 logging.info("Logging singleton test message.")
@@ -55,7 +59,12 @@ async def startup_event():
 	logging.info("FastAPI startup_event")
 	etsy_connections = await mongodb.db["EtsyShopConnections"].find().to_list(100)
 	job_offset = 0
-	myScheduler.scheduler.start()
+	
+	if ENV_MODE != "DEV":
+		logging.info("... Production Environment ...")
+		myScheduler.scheduler.start()
+	else:
+		logging.info("This is development environment.")
 	for etsy_connection in etsy_connections:
 		_id = str(etsy_connection["_id"])
 		myScheduler.add_job(
@@ -96,8 +105,41 @@ app.add_middleware(
 )
 
 
+@app.get('/receipt/label/{receipt_id}')
+async def get_label_by_receipt_id(receipt_id: int):
+	label_bytes = await StallionLabelManager.get_label_by_receipt_id(receipt_id)
+	if label_bytes is None:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"There is no label associated with the given Receipt ID ({receipt_id})")
+	def iterfile():
+		temp_label_file = tempfile.NamedTemporaryFile()
+		temp_label_file.write(label_bytes)
+		logging.info(temp_label_file.name)
+		with open(temp_label_file.name, 'rb') as label_file:
+			yield from label_file
+		temp_label_file.close()
+	return StreamingResponse(iterfile(), media_type='application/pdf', headers={'content-disposition': f'attachment; filename="{receipt_id}.pdf"'})
+		
+
+
+@app.post("/uploadstallioncsvfile")
+async def create_upload_file( background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+	logging.info(file)
+	logging.info(dir(file))
+	file_content = await file.read()
+	background_tasks.add_task(StallionCsvFileManager.process_csv_file, file_content)
+	# await StallionCsvFileManager.process_csv_file(file_content)
+	return {"filename": file.filename}
+
+
+@app.get("/users")
+async def get_all_users(user: UserData = Depends(is_authenticated)):
+	all_users = await mongodb.db["Users"].find(projection={"username": True, "email": True}).to_list(100)
+	return all_users
+
+
 @app.post('/user/note', response_model=ReceiptNote)
 async def create_note(note_data: CreateReceiptNote = Body(...), user: UserData = Depends(is_authenticated)):
+	logging.info(note_data)
 	note_data = jsonable_encoder(note_data)
 	insert_note_data = await mongodb.db["Notes"].insert_one({
 		"receipt_id": note_data["receipt_id"],
@@ -108,29 +150,37 @@ async def create_note(note_data: CreateReceiptNote = Body(...), user: UserData =
 	})
 	inserted_note_Data = await mongodb.db["Notes"].find_one({"_id": insert_note_data.inserted_id})
 	logging.info(inserted_note_Data)
+	inserted_note_Data["_id"] = str(inserted_note_Data["_id"])
 	return inserted_note_Data
 
 
-@app.get("/user/note/{receipt_id}", response_model=ReceiptNote)
-async def get_note_by_receipt_id(receipt_id: str, user: UserData = Depends(is_authenticated)):
+@app.get("/user/note/{receipt_id}", )
+async def get_note_by_receipt_id(receipt_id: int, user: UserData = Depends(is_authenticated)):
+	logging.info(receipt_id)
 	note = await mongodb.db["Notes"].find_one({"receipt_id": receipt_id})
 	if note is not None:
+		logging.info(f"Note is not None {note}")
+		note["_id"] = str(note["_id"])
 		return note
 	else:
-		return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"There is no note found for {receipt_id}")
+		logging.info("Note is None")
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"There is no note found for {receipt_id}")
 
 
 @app.put("/user/note/{receipt_id}", response_model=ReceiptNote)
-async def update_note(receipt_id: str, note_data: UpdateReceiptNote = Body(...),
+async def update_note(receipt_id: int, note_data: UpdateReceiptNote = Body(...),
                       user: UserData = Depends(is_authenticated)):
 	note_data = jsonable_encoder(note_data)
 	note_data["updated_at"] = datetime.now()
+	note_data["updated_by"] = user.user
+	logging.info(note_data)
 	# update_fields = {k: v for k, v in note_data.items() if v is not None}
 	update_note_data = await mongodb.db["Notes"].update_one({"receipt_id": receipt_id}, {
 		"$set": note_data
 	})
 	if update_note_data.modified_count == 1:
 		note = await mongodb.db["Notes"].find_one({"receipt_id": receipt_id})
+		note["_id"] = str(note["_id"])
 		return note
 
 
@@ -224,28 +274,22 @@ async def invite(background_tasks: BackgroundTasks, invitation_details: Invitati
 	inserted_email_invitation = await mongodb.db["InvitationEmails"].find_one({
 		"_id": invite_email_result.inserted_id
 	})
-	print(inserted_email_invitation)
-	
-	def send_email_invite():
-		with smtplib.SMTP_SSL(MAIL_HOST, MAIL_PORT, context=context) as server:
-			server.login(MAIL_EMAIL, MAIL_PASSWORD)
-			server.sendmail(
-				from_addr=MAIL_EMAIL,
-				to_addrs=inserted_email_invitation['email'],
-				msg=f"""
-	            Your verification code is {inserted_email_invitation['verification_code']}
-	            
-	            The verification code will expire in 30 minutes!
-	            
-	            You can complete your registration by using below link:
-	            {email_invitation_link.format(
+	logging.info(inserted_email_invitation)
+
+	body={
+		'verification_code': inserted_email_invitation['verification_code'],
+		'register_email_url': email_invitation_link.format(
 					email=inserted_email_invitation['email'],
-					verification_code=inserted_email_invitation['verification_code']
-				)}
-	            """
-			)
+					verification_code=inserted_email_invitation['verification_code'])}
+	ms = get_mail_service()
+	message = MessageSchema(
+        subject="[OrderAIO] - Register - Verification Code",
+        recipients=[inserted_email_invitation['email']],
+        template_body=body,
+        subtype='html',
+    )
 	
-	background_tasks.add_task(send_email_invite)
+	background_tasks.add_task(ms.send_message, message, template_name="verification_email.html")
 	
 	return {**inserted_email_invitation, "status": "Waiting for verification"}
 

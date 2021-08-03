@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "463bb7266a95da4c8cc17446dcfe2d37ee71b48e8f23cdb6a18cea50f71b7985"
+            "sha256": "827bc13db5253b9107780b40bf02d1b11fa225cf7ea70c3b6f22b233839a9c7e"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -66,6 +66,22 @@
             ],
             "index": "pypi",
             "version": "==3.7.4.post0"
+        },
+        "aioredis": {
+            "hashes": [
+                "sha256:3a2de4b614e6a5f8e104238924294dc4e811aefbe17ddf52c04a93cbf06e67db",
+                "sha256:9921d68a3df5c5cdb0d5b49ad4fc88a4cfdd60c108325df4f0066e8410c55ffb"
+            ],
+            "markers": "python_version >= '3.6'",
+            "version": "==2.0.0"
+        },
+        "aiosmtplib": {
+            "hashes": [
+                "sha256:84174765778b2c5e0e207fbce0a769202fcf0c3de81faa87cc03551a6333bfa9",
+                "sha256:d138fe6ffecbc9e6320269690b9ac0b75e540ef96e8f5c77d4a306760014dce2"
+            ],
+            "markers": "python_version < '4' and python_full_version >= '3.5.2'",
+            "version": "==1.1.6"
         },
         "aniso8601": {
             "hashes": [
@@ -151,6 +167,12 @@
             ],
             "index": "pypi",
             "version": "==3.2.0"
+        },
+        "blinker": {
+            "hashes": [
+                "sha256:471aee25f3992bd325afa3772f1063dbdbbca947a041b8b89466dc00d606f8b6"
+            ],
+            "version": "==1.4"
         },
         "certifi": {
             "hashes": [
@@ -281,6 +303,14 @@
             "index": "pypi",
             "version": "==1.1.3"
         },
+        "fakeredis": {
+            "hashes": [
+                "sha256:18fc1808d2ce72169d3f11acdb524a00ef96bd29970c6d34cfeb2edb3fc0c020",
+                "sha256:f1ffdb134538e6d7c909ddfb4fc5edeb4a73d0ea07245bc69b8135fbc4144b04"
+            ],
+            "markers": "python_version >= '3.5'",
+            "version": "==1.5.2"
+        },
         "fastapi": {
             "hashes": [
                 "sha256:39569a18914075b2f1aaa03bcb9dc96a38e0e5dabaf3972e088c9077dfffa379",
@@ -288,6 +318,14 @@
             ],
             "index": "pypi",
             "version": "==0.65.2"
+        },
+        "fastapi-mail": {
+            "hashes": [
+                "sha256:ab7739cc9881bd8827c642b1f784e625ab52b05bb0e48e52cf8bc89f70b6c9d4",
+                "sha256:b33e0ef089c123040bdf68c5c393a5d57c9ede410669a3c24606bc4d6fc70cae"
+            ],
+            "index": "pypi",
+            "version": "==0.4.0"
         },
         "graphene": {
             "hashes": [
@@ -812,6 +850,13 @@
             ],
             "index": "pypi",
             "version": "==1.2.0"
+        },
+        "sortedcontainers": {
+            "hashes": [
+                "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88",
+                "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0"
+            ],
+            "version": "==2.4.0"
         },
         "starlette": {
             "hashes": [
