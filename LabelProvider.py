@@ -37,6 +37,8 @@ class StallionCsvFileManager:
 		insert_data = []
 		for row in csv_reader:
 			logging.info(f"{row['Ship Code']} : {row['Order ID']}")
+			if not row['Order ID'].isnumeric():
+				continue
 			insert_data.append({
 				'shipment_id': row['Ship Code'],
 				'receipt_id': int(row['Order ID']),
