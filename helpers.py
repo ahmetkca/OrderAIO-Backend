@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import pytz
 from typing import List
 from MyLogger import Logger
 logging = Logger().logging
@@ -47,7 +48,8 @@ def calculate_max_min_due_date(receipt: dict) -> None:
 	logging.info(f"number of listings: {len(receipt['Listings'])}")
 	# pprint.pprint(receipt['Transactions'])
 	receipt["is_completed"] = False
-	paid_date = datetime.fromtimestamp(int(receipt["Transactions"][0]["paid_tsz"]))
+	paid_date = datetime.fromtimestamp(int(receipt["Transactions"][0]["paid_tsz"]), pytz.timezone('Canada/Eastern'))
+	
 	max_pro_n_day: int = find_bigger_max_processing(receipt)
 	max_due_date = bday(paid_date, max_pro_n_day)
 	min_pro_n_day: int = find_smaller_min_processing(receipt)
