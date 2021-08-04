@@ -101,7 +101,7 @@ class EtsyShopManager:
 	
 	@staticmethod
 	async def check_for_new_orders(asyncEtsyApi, params):
-		logging.info(f"Checking for new orders {asyncEtsyApi.}")
+		logging.info(f"Checking for new orders {asyncEtsyApi.shop_id}")
 		receipts_not_paid = []
 		receipts_to_be_inserted = numpy.array([])
 		receipt_responses = await AsyncEtsy.asyncLoop(
