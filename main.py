@@ -1,5 +1,5 @@
 from LabelProvider import StallionCsvFileManager, StallionLabelManager
-from MyEmailService import get_mail_service
+from MyEmailService import send_verification_email
 import ujson
 import pprint
 import ssl
@@ -16,8 +16,6 @@ from pydantic import BaseModel
 from redis import ResponseError
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-
-from fastapi_mail import MessageSchema
 
 from EtsyAPISession import EtsyAPISession
 from EtsyShopManager import EtsyShopManager
@@ -106,7 +104,7 @@ app.add_middleware(
 
 
 @app.get('/receipt/label/{receipt_id}')
-async def get_label_by_receipt_id(receipt_id: int):
+async def get_label_by_receipt_id(receipt_id: int, user: UserData = Depends(is_authenticated)):
 	label_bytes = await StallionLabelManager.get_label_by_receipt_id(receipt_id)
 	if label_bytes is None:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"There is no label associated with the given Receipt ID ({receipt_id})")
@@ -122,7 +120,7 @@ async def get_label_by_receipt_id(receipt_id: int):
 
 
 @app.post("/uploadstallioncsvfile")
-async def create_upload_file( background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+async def create_upload_file( background_tasks: BackgroundTasks, file: UploadFile = File(...), user: UserData = Depends(is_authenticated)):
 	logging.info(file)
 	logging.info(dir(file))
 	file_content = await file.read()
@@ -276,22 +274,44 @@ async def invite(background_tasks: BackgroundTasks, invitation_details: Invitati
 	})
 	logging.info(inserted_email_invitation)
 
-	body={
-		'verification_code': inserted_email_invitation['verification_code'],
-		'register_email_url': email_invitation_link.format(
-					email=inserted_email_invitation['email'],
-					verification_code=inserted_email_invitation['verification_code'])}
-	ms = get_mail_service()
-	message = MessageSchema(
-        subject="[OrderAIO] - Register - Verification Code",
-        recipients=[inserted_email_invitation['email']],
-        template_body=body,
-        subtype='html',
-    )
+	# body={
+	# 	'verification_code': inserted_email_invitation['verification_code'],
+	# 	'register_email_url': email_invitation_link.format(
+	# 				email=inserted_email_invitation['email'],
+	# 				verification_code=inserted_email_invitation['verification_code'])}
+	# ms = get_mail_service()
+	# message = MessageSchema(
+    #     subject="[OrderAIO] - Register - Verification Code",
+    #     recipients=[inserted_email_invitation['email']],
+    #     template_body=body,
+    #     subtype='html',
+    # )
+	try:
+		await send_verification_email(
+			inserted_email_invitation['verification_code'],
+			inserted_email_invitation['email'],
+			email_invitation_link.format(
+				email=inserted_email_invitation['email'],
+				verification_code=inserted_email_invitation['verification_code']
+			)
+		)
+	except Exception as e:
+		logging.exception(e)
+		await mongodb.db["InvitationEmails"].delete_one({"_id": invite_email_result.inserted_id})
+		raise HTTPException(status_code=400,
+			                    detail=f"Something went wrong. Verification email couldn't sent.")
+	else:
+		return {**inserted_email_invitation, "status": "Waiting for verification"}
+	# background_tasks.add_task(
+	# 	send_verification_email, 
+	# 	inserted_email_invitation['email'],
+	# 	inserted_email_invitation['verification_code'],
+	# 	email_invitation_link.format(
+	# 				email=inserted_email_invitation['email'],
+	# 				verification_code=inserted_email_invitation['verification_code'])
+	# 	)
 	
-	background_tasks.add_task(ms.send_message, message, template_name="verification_email.html")
 	
-	return {**inserted_email_invitation, "status": "Waiting for verification"}
 
 
 @app.post("/register", response_model=User, response_model_exclude_defaults=True)

@@ -4,7 +4,6 @@ from typing import List, Optional
 from pymongo import errors
 from helpers import calculate_max_min_due_date
 
-import numpy
 from bson import ObjectId
 
 from AsyncEtsyApi import AsyncEtsy, Method, EtsyUrl
@@ -61,7 +60,7 @@ class EtsyShopManager:
 		my_params = dict(params)
 		my_params.pop("min_created", None)
 		receipts_not_paid = []
-		receipts_to_be_inserted = numpy.array([])
+		receipts_to_be_inserted = []
 		unpaid_from_redis = r.get(f"{etsy_connection_id}:unpaid_receipts")
 		if unpaid_from_redis is not None and len(unpaid_from_redis) > 0:
 			
@@ -78,8 +77,7 @@ class EtsyShopManager:
 					continue
 				res_json = res.json()
 				results: List[dict] = res_json["results"]
-				pop_list = []
-				for i, receipt in enumerate(results):
+				for receipt in results:
 					logging.info(receipt['receipt_id'])
 					was_paid: bool = receipt["was_paid"]
 					logging.info(f"was_paid: {was_paid}")
@@ -103,7 +101,7 @@ class EtsyShopManager:
 	async def check_for_new_orders(asyncEtsyApi, params):
 		logging.info(f"Checking for new orders {asyncEtsyApi.shop_id}")
 		receipts_not_paid = []
-		receipts_to_be_inserted = numpy.array([])
+		receipts_to_be_inserted = []
 		receipt_responses = await AsyncEtsy.asyncLoop(
 			f=asyncEtsyApi.getAllPages,
 			method=Method.get,
@@ -116,8 +114,7 @@ class EtsyShopManager:
 				continue
 			res_json = res.json()
 			results: List[dict] = res_json["results"]
-			pop_list = []
-			for i, receipt in enumerate(results):
+			for receipt in results:
 				logging.info(receipt['receipt_id'])
 				was_paid: bool = receipt["was_paid"]
 				logging.info(f"was_paid: {was_paid}")
@@ -141,6 +138,7 @@ class EtsyShopManager:
 	
 	@staticmethod
 	async def syncShop(etsy_connection_id: str):
+		is_successfull = False
 		db = MongoDB().db
 		r = MyRedis().r
 		try:
@@ -177,9 +175,7 @@ class EtsyShopManager:
 			receipts_not_paid = list(receipts_not_paid)
 			logging.info(f"{asyncEtsyApi.shop_id} Final not yet finished payment processed Receipts -> {receipts_not_paid}")
 			r.set(f"{etsy_connection_id}:unpaid_receipts", ','.join(str(not_paid_receipt) for not_paid_receipt in receipts_not_paid))
-			receipts_to_be_inserted = numpy.concatenate((receipts_to_be_inserted, r_to_be_inserted))
-			
-			receipts_to_be_inserted = receipts_to_be_inserted.tolist()
+			receipts_to_be_inserted = receipts_to_be_inserted + r_to_be_inserted
 			logging.info(f"{asyncEtsyApi.shop_id} Final Receipts to be inserted into MongoDB -> {receipts_to_be_inserted}")
 			mongodb_result = await etsyShopManager.insert_receipts(receipts_to_be_inserted, db)
 			if len(mongodb_result) == len(receipts_to_be_inserted):
@@ -188,6 +184,8 @@ class EtsyShopManager:
 				r.set(f"{etsy_connection_id}:last_updated", current_time)
 		except Exception as e:
 			logging.exception(e)
-			pass
+		else:
+			is_successfull = True
 		finally:
+			logging.info(f".---'| {asyncEtsyApi.shop_id} {'was Successful' if is_successfull else 'Failed'} |'---.")
 			r.set(f"{etsy_connection_id}:is_running", "False")
