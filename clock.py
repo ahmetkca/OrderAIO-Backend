@@ -1,12 +1,19 @@
 from MyLogger import Logger
 logging = Logger().logging
 from MyScheduler import MyScheduler
-myScheduler = MyScheduler()
 from EtsyShopManager import EtsyShopManager
 from database import MongoDB
-mongodb = MongoDB()
 from config import ENV_MODE, SCHEDULED_JOB_INTERVAL, SCHEDULED_JOB_OFFSET
 import asyncio
+
+
+# from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+# sched = AsyncIOScheduler()
+
+
+# @sched.scheduled_job()
+
 
 
 async def main():
@@ -38,9 +45,12 @@ async def main():
 	myScheduler.scheduler.print_jobs()
 
 
-if __name__ == '__main__':
-	loop = asyncio.get_event_loop()
-	try:
-		loop.run_until_complete(main())
-	except Exception as e:
-		logging.exception(e)
+myScheduler = MyScheduler()
+mongodb = MongoDB()
+loop = asyncio.get_event_loop()
+try:
+	loop.run_until_complete(main())
+except Exception as e:
+	logging.exception(e)
+finally:
+	logging.info("Scheduler finished")
