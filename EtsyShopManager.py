@@ -173,10 +173,10 @@ class EtsyShopManager:
 			receipts_not_paid = receipts_not_paid + unpaid_receipts
 			receipts_not_paid = set(receipts_not_paid)
 			receipts_not_paid = list(receipts_not_paid)
-			logging.info(f"{asyncEtsyApi.shop_id} Final not yet finished payment processed Receipts -> {receipts_not_paid}")
+			logging.info(f"{asyncEtsyApi.shop_id} Final Merged not yet finished payment processed Receipts -> {receipts_not_paid}")
 			r.set(f"{etsy_connection_id}:unpaid_receipts", ','.join(str(not_paid_receipt) for not_paid_receipt in receipts_not_paid))
 			receipts_to_be_inserted = receipts_to_be_inserted + r_to_be_inserted
-			logging.info(f"{asyncEtsyApi.shop_id} Final Receipts to be inserted into MongoDB -> {receipts_to_be_inserted}")
+			logging.info(f"{asyncEtsyApi.shop_id} Final Receipts to be inserted into MongoDB -> {[receipt['receipt_id'] for receipt in receipts_to_be_inserted]}")
 			mongodb_result = await etsyShopManager.insert_receipts(receipts_to_be_inserted, db)
 			if len(mongodb_result) == len(receipts_to_be_inserted):
 				logging.info("successfully inserted all receipts")
