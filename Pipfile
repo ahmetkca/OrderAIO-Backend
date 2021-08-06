@@ -72,6 +72,7 @@ PyJWT = "==2.1.0"
 PyYAML = "==5.4.1"
 Rx = "==1.6.1"
 fastapi-mail = "*"
+rq = "*"
 
 [dev-packages]
 
