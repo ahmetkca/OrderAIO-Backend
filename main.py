@@ -18,7 +18,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 
 from EtsyAPISession import EtsyAPISession
-from EtsyShopManager import EtsyShopManager
+from EtsyShopManager import syncShop
 from auth import AuthHandler
 from database import MongoDB, MyRedis, EtsyShopConnection, UpdateEtsyShopConnection, InvitationEmail, User, \
 	ReceiptNote, CreateReceiptNote, UpdateReceiptNote
@@ -36,7 +36,7 @@ logging.info("Logging singleton test message.")
 
 mongodb = MongoDB()
 r = MyRedis().r
-# myScheduler = MyScheduler()
+myScheduler = MyScheduler()
 
 context = ssl.create_default_context()
 email_invitation_link = FRONTEND_URI + "/#/register?email={email}&verification_code={verification_code}"
@@ -91,7 +91,7 @@ async def shutdown_event():
 
 @app.get("/")
 async def root():
-	# myScheduler.scheduler.print_jobs()
+	myScheduler.scheduler.print_jobs()
 	return {"root": "boot"}
 
 
