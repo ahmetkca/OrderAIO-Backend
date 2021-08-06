@@ -27,7 +27,7 @@ from oauth2 import (oauth2_schema,
                     verify_password)
 from schemas import UserData, ReceiptStatus
 from EtsyAPI import EtsyAPI, create_etsy_api_with_etsy_connection
-from MyScheduler import MyScheduler
+# from MyScheduler import MyScheduler
 from config import ENV_MODE, FRONTEND_URI, JWT_SECRET, SCHEDULED_JOB_INTERVAL, SCHEDULED_JOB_OFFSET
 import tempfile
 from MyLogger import Logger
@@ -36,7 +36,7 @@ logging.info("Logging singleton test message.")
 
 mongodb = MongoDB()
 r = MyRedis().r
-myScheduler = MyScheduler()
+# myScheduler = MyScheduler()
 
 context = ssl.create_default_context()
 email_invitation_link = FRONTEND_URI + "/#/register?email={email}&verification_code={verification_code}"
