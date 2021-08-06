@@ -7,10 +7,10 @@ from MyLogger import Logger
 from MyScheduler import MyScheduler
 from EtsyShopManager import EtsyShopManager
 from config import SCHEDULED_JOB_INTERVAL, SCHEDULED_JOB_OFFSET
-from jobs import SyncEtsyShopReceipts
+# from jobs import SyncEtsyShopReceipts
 myScheduler = MyScheduler()
 logging = Logger().logging
-syncEtsyShopReceipts = SyncEtsyShopReceipts()
+# syncEtsyShopReceipts = SyncEtsyShopReceipts()
 
 # from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -28,7 +28,8 @@ def sync_etsy_shop_receipts(etsy_connection_id):
 
 
 job_offset = 0
-for etsy_connection_id in syncEtsyShopReceipts.get_jobs_to_schedule():
+# syncEtsyShopReceipts.get_jobs_to_schedule()
+for etsy_connection_id in ["60c93353ee7306108057150e", "60cd6a1adceaba8c03b9b344"]:
 	myScheduler.scheduler.add_job(
 		sync_etsy_shop_receipts,
 		kwargs={"etsy_connection_id": etsy_connection_id}
