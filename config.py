@@ -2,8 +2,12 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-SCHEDULED_JOB_INTERVAL = 15
-SCHEDULED_JOB_OFFSET = 5
+
+ENV_MODE = os.environ.get("ENV_MODE")
+
+
+SCHEDULED_JOB_INTERVAL = 1 if ENV_MODE == "DEV" or ENV_MODE is None else 15
+SCHEDULED_JOB_OFFSET = 0 if ENV_MODE == "DEV" or ENV_MODE is None else 5
 
 NO_CONCURRENT = 10
 LIMIT = 100
@@ -21,7 +25,6 @@ ETSY_API_BASE_URI = os.environ.get("ETSY_API_BASE_URI")
 ETSY_API_KEY = os.environ.get("ETSY_API_KEY")
 ETSY_API_SECRET = os.environ.get("ETSY_API_SECRET")
 CALLBACK_URI = os.environ.get("CALLBACK_URI")
-ENV_MODE = os.environ.get("ENV_MODE")
 STALLION_API_BASE_URL = os.environ.get("STALLION_API_BASE_URL")
 STALLION_API_TOKEN = os.environ.get("STALLION_API_TOKEN")
 SMTP_HOST = os.environ.get("SMTP_HOST")

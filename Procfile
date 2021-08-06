@@ -1,2 +1,2 @@
 web: gunicorn --timeout 120 -w 4 -k workers.MyUvicornWorker main:app
-clock: python clock.py
+clock: uvicorn clock:app

@@ -1,3 +1,4 @@
+import httpx
 from LabelProvider import StallionCsvFileManager, StallionLabelManager
 from MyEmailService import send_verification_email
 import ujson
@@ -102,6 +103,23 @@ app.add_middleware(
 	allow_methods=["*"],
 	allow_headers=["*"],
 )
+
+def test(text):
+	print("TEST", text)
+
+
+class SyncShopProcess(BaseModel):
+	etsy_connection_id: str
+
+
+@app.post('/apscheduler/test')
+async def apscheduler_test(etsy_connection_id: SyncShopProcess):
+	etsy_connection_id = etsy_connection_id.dict().get('etsy_connection_id')
+	async with httpx.AsyncClient() as client:
+		res = await client.post('http://127.0.0.1:8000/apscheduler/add/syncShopProcess', json={'etsy_connection_id': etsy_connection_id})
+
+		res_json = res.json()
+		return res_json
 
 
 @app.get('/receipt/label/{receipt_id}')
