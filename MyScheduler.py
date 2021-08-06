@@ -1,7 +1,9 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-# from apscheduler.jobstores.mongodb import MongoDBJobStore
+from apscheduler.jobstores.mongodb import MongoDBJobStore
 from MyLogger import Logger
 logging = Logger().logging
+from database import MongoDB
+mongodb = MongoDB()
 
 
 class MyScheduler(object):
@@ -15,15 +17,15 @@ class MyScheduler(object):
 		return cls._instance
 	
 	def __init__(self) -> None:
-		# jobstores = {
-		# 	"mongodb": MongoDBJobStore(
-		# 		database="multiorder",
-		# 		collection="apscheduler.jobs",
-		# 		# client=mongodb.client
-		# 		host=mongodb.client.HOST,
-		# 		port=mongodb.client.PORT
-		# 	)
-		# }
+		jobstores = {
+			"mongodb": MongoDBJobStore(
+				database="multiorder",
+				collection="apscheduler.jobs",
+				# client=mongodb.client
+				host=mongodb.client.HOST,
+				port=mongodb.client.PORT
+			)
+		}
 		# print(dir(mongodb.client))
 		# redis_connection_url = urlparse(REDIS_TLS_URL)
 		# jobstores = {
@@ -35,7 +37,8 @@ class MyScheduler(object):
 		# 	                       ssl_cert_reqs=None)
 		# }
 		self.jobs = {}
-		self.scheduler = self._instance.scheduler
+		self.scheduler: AsyncIOScheduler = self._instance.scheduler
+		self.scheduler.configure(jobstores=jobstores)
 		# self.scheduler.start()
 
 	def add_job(self, my_id, *args, **kwargs):

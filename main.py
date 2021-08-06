@@ -458,7 +458,7 @@ async def sync(etsy_connection_id: str, background_tasks: BackgroundTasks, user:
 			"background-task": "already running"
 		}
 	background_tasks.add_task(
-		func=EtsyShopManager.syncShop,
+		func=syncShop,
 		etsy_connection_id=etsy_connection_id,
 		db=mongodb.db,
 		r=r

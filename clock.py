@@ -8,8 +8,7 @@
 #     ENDC = '\033[0m'
 #     BOLD = '\033[1m'
 #     UNDERLINE = '\033[4m'
-from termcolor import colored, cprint
-
+from termcolor import colored
 import asyncio
 # from rq import Queue
 # from worker import conn
@@ -17,14 +16,14 @@ import asyncio
 # q = Queue(connection=conn)
 # from apscheduler.schedulers.blocking import BlockingScheduler
 # from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+# from apscheduler.schedulers.asyncio import AsyncIOScheduler
 # from apscheduler.schedulers.background import BackgroundScheduler
 from MyLogger import Logger
 from MyScheduler import MyScheduler
 from EtsyShopManager import syncShop
 # syncShop = EtsyShopManager.syncShop
 from config import SCHEDULED_JOB_INTERVAL, SCHEDULED_JOB_OFFSET
-from threading import Timer
+# from threading import Timer
 from jobs import SyncEtsyShopReceipts
 # myScheduler = BlockingScheduler()
 # from apscheduler.executors.pool import ProcessPoolExecutor
@@ -36,7 +35,7 @@ myScheduler = MyScheduler().scheduler
 logging = Logger().logging
 # import time
 import os
-import random
+# import random
 syncEtsyShopReceipts = SyncEtsyShopReceipts()
 
 # from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -79,21 +78,21 @@ for etsy_connection_id in syncEtsyShopReceipts.get_jobs_to_schedule():
 print('Press Ctrl+C to exit')
 myScheduler.start()
 print('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
-def test_jb(a):
-	print(f"TEST JOB {a * random.randint(1, 99)}")
+# def test_jb(a):
+# 	print(f"TEST JOB {a * random.randint(1, 99)}")
 
-def add_job_after():
-	myScheduler.add_job(
-		test_jb,
-		"interval",
-		seconds=15,
-		args=[random.randint(1, 99)]
-	)
+# def add_job_after():
+# 	myScheduler.add_job(
+# 		test_jb,
+# 		"interval",
+# 		seconds=15,
+# 		args=[random.randint(1, 99)]
+# 	)
 
-test = Timer(30, add_job_after)
+# test = Timer(30, add_job_after)
 # Execution will block here until Ctrl+C (Ctrl+Break on Windows) is pressed.
 try:
-	test.start()
+	# test.start()
 	asyncio.get_event_loop().run_forever()
 except (KeyboardInterrupt, SystemExit):
 	pass
