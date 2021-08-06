@@ -91,7 +91,7 @@ async def shutdown_event():
 
 @app.get("/")
 async def root():
-	myScheduler.scheduler.print_jobs()
+	# myScheduler.scheduler.print_jobs()
 	return {"root": "boot"}
 
 
