@@ -1,3 +1,4 @@
+from termcolor import colored
 from asyncio import Task
 from enum import Enum
 
@@ -42,13 +43,13 @@ class AsyncEtsy:
 		if params is None:
 			params = {"limit": LIMIT}
 		url = ETSY_API_BASE_URI + url
-		logging.info(f"Starting to fetch ({url})")
+		logging.info(colored(f"{colored(self.shop_id, 'blue', 'on_grey', attrs=['bold', 'underline'])} Starting to fetch ({url})", on_color='on_grey'))
 		params["limit"] = LIMIT
 		async with AsyncOAuth1Client(self.client_id, self.client_secret, self.token, self.token_secret) as etsy:
 			# print(params)
 			res = await etsy.request(method=method.value, url=url, params=params, timeout=None)
 			# print(f"({url}) Fetched page #{res.json()['params']['page']} {res.status_code}")
-			logging.info(f"Done ... ({url}) ({res.status_code})")
+			logging.info(f"{colored(self.shop_id, 'blue', 'on_grey', attrs=['bold', 'underline'])} Done ... ({url}) ({colored(str(res.status_code), 'green' if res.status_code == 200 else 'red', attrs=['reverse', 'blink', 'bold', 'underline'])})")
 		return res
 	
 	async def requestByPage(self, method, url, params, page):
@@ -64,7 +65,7 @@ class AsyncEtsy:
 			params = {}
 		count_res = await self.request(method, url, params)
 		count = count_res.json()["count"]
-		logging.info(f"Total {count} item has been found for {url}")
+		logging.info(colored(f"{colored(self.shop_id, 'blue', 'on_grey', attrs=['bold', 'underline'])} Total {count} item has been found for {url}", 'blue', 'on_white', attrs=['reverse', 'blink']))
 		dltasks = set()
 		next_page = 1
 		while next_page <= ceil(count / LIMIT):
@@ -110,7 +111,7 @@ class AsyncEtsy:
 						EtsyUrl.findAllShop_Receipt2Transactions(receipt_id)),
 					name=f"{mongodb_id}:{receipt_id}")
 			)
-			await asyncio.sleep(0.15)
+			await asyncio.sleep(0.25)
 			receipt_ids_index += 1
 		
 		logging.info("Last transactions")

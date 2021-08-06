@@ -1,3 +1,5 @@
+from termcolor import colored
+
 from datetime import datetime
 from typing import List, Optional
 
@@ -13,7 +15,7 @@ logging = Logger().logging
 from database import MongoDB, MyRedis
 
 
-class EtsyShopManager:
+class MyEtsyShopManager:
 	
 	def __init__(self, shop_name):
 		self.shop_name = shop_name
@@ -81,7 +83,7 @@ class EtsyShopManager:
 					logging.info(receipt['receipt_id'])
 					was_paid: bool = receipt["was_paid"]
 					logging.info(f"was_paid: {was_paid}")
-					logging.info(f"{receipt['receipt_id']} -> Transactions[0]: {receipt['Transactions'][0]}")
+					# logging.info(f"{receipt['receipt_id']} -> Transactions[0]: {f'\n\t' + str(receipt['Transactions'][0]['receipt_id'])} {f'\n\t' + str(receipt['Transactions'][0]['paid_tsz'])}")
 					paid_tzs: Optional[int] = receipt["Transactions"][0]["paid_tsz"]
 					if not was_paid or paid_tzs is None:
 						logging.info(f"{receipt['receipt_id']} : was_paid={was_paid} : paid_tzs={paid_tzs}. Probably processing payment in the Etsy side.")
@@ -93,7 +95,7 @@ class EtsyShopManager:
 				# for pop_index in pop_list:
 				# 	results.pop(pop_index)
 				# receipts_to_be_inserted = numpy.concatenate((receipts_to_be_inserted, results))
-		logging.info(f"{asyncEtsyApi.shop_id} Receipts to be inserted -> {receipts_to_be_inserted}")
+		logging.info(f"{asyncEtsyApi.shop_id} Receipts to be inserted -> {' , '.join(str(receipt['receipt_id']) for receipt in receipts_to_be_inserted)}")
 		logging.info(f"{asyncEtsyApi.shop_id} Not yet finished payment process Receipts -> {receipts_not_paid}")
 		return receipts_not_paid, receipts_to_be_inserted
 	
@@ -119,9 +121,9 @@ class EtsyShopManager:
 				was_paid: bool = receipt["was_paid"]
 				logging.info(f"was_paid: {was_paid}")
 				paid_tzs: Optional[int] = receipt["Transactions"][0]["paid_tsz"]
-				logging.info(f"{receipt['receipt_id']} -> Transactions[0]: {receipt['Transactions'][0]}")
+				# logging.info(f"{receipt['receipt_id']} -> Transactions[0]: {receipt['Transactions'][0]}")
 				if not was_paid or paid_tzs is None:
-					logging.info(f"{receipt['receipt_id']} : was_paid={was_paid} : paid_tzs={paid_tzs}. Probably processing payment in the Etsy side.")
+					logging.info(colored(f"{receipt['receipt_id']} : was_paid={was_paid} : paid_tzs={paid_tzs}. Probably processing payment in the Etsy side.", 'magenta', attrs=['underline', 'bold']))
 					# pop_list.append(i)
 					receipts_not_paid.append(receipt["receipt_id"])
 					continue
@@ -132,60 +134,117 @@ class EtsyShopManager:
 			# receipts_to_be_inserted = numpy.concatenate((receipts_to_be_inserted, results))
 		# logging.info(receipts_not_paid)
 		# logging.info(receipts_to_be_inserted)
-		logging.info(f"{asyncEtsyApi.shop_id} Receipts to be inserted -> {receipts_to_be_inserted}")
+		logging.info(f"{asyncEtsyApi.shop_id} Receipts to be inserted -> {' , '.join(str(receipt['receipt_id']) for receipt in receipts_to_be_inserted)}")
 		logging.info(f"{asyncEtsyApi.shop_id} Not yet finished payment process Receipts -> {receipts_not_paid}")
 		return receipts_not_paid, receipts_to_be_inserted
 	
-	@staticmethod
-	async def syncShop(etsy_connection_id: str):
-		is_successfull = False
-		db = MongoDB().db
-		r = MyRedis().r
-		try:
-			is_running = r.get(f"{etsy_connection_id}:is_running")
-			logging.info(f"is_running: {is_running}")
-			if is_running == "True":
-				return {
-					"background-task": "already running"
-				}
-			else:
-				r.set(f"{etsy_connection_id}:is_running", "True")
-			last_updated = r.get(f"{etsy_connection_id}:last_updated")
-			params = {
-				"includes": "Transactions/MainImage,Listings/ShippingTemplate"
+	# @staticmethod
+	# async def syncShop(etsy_connection_id: str):
+	# 	is_successfull = False
+	# 	db = MongoDB().db
+	# 	r = MyRedis().r
+	# 	try:
+	# 		is_running = r.get(f"{etsy_connection_id}:is_running")
+	# 		logging.info(f"is_running: {is_running}")
+	# 		if is_running == "True":
+	# 			return {
+	# 				"background-task": "already running"
+	# 			}
+	# 		else:
+	# 			r.set(f"{etsy_connection_id}:is_running", "True")
+	# 		last_updated = r.get(f"{etsy_connection_id}:last_updated")
+	# 		params = {
+	# 			"includes": "Transactions/MainImage,Listings/ShippingTemplate"
+	# 		}
+	# 		if last_updated is not None:
+	# 			last_updated = int(last_updated)
+	# 			logging.info("last_updated is not None, setting min_created")
+	# 			params["min_created"] = last_updated
+	# 		current_time = int(datetime.now().timestamp())
+	# 		params["max_created"] = current_time
+	# 		if last_updated is not None:
+	# 			logging.info(f"From = {datetime.fromtimestamp(last_updated)}\nTo = {datetime.fromtimestamp(current_time)}")
+	# 		else:
+	# 			logging.info(f"From = -\nTo = {datetime.fromtimestamp(current_time)}")
+			
+	# 		asyncEtsyApi = await AsyncEtsy.getAsyncEtsyApi(etsy_connection_id, db)
+	# 		etsyShopManager = EtsyShopManager(asyncEtsyApi.shop_id)
+			
+	# 		receipts_not_paid, receipts_to_be_inserted = await EtsyShopManager.check_unpaids(etsy_connection_id, asyncEtsyApi, params, r)
+	# 		unpaid_receipts, r_to_be_inserted = await EtsyShopManager.check_for_new_orders(asyncEtsyApi, params)
+	# 		receipts_not_paid = receipts_not_paid + unpaid_receipts
+	# 		receipts_not_paid = set(receipts_not_paid)
+	# 		receipts_not_paid = list(receipts_not_paid)
+	# 		logging.info(f"{asyncEtsyApi.shop_id} Final Merged not yet finished payment processed Receipts -> {receipts_not_paid}")
+	# 		r.set(f"{etsy_connection_id}:unpaid_receipts", ','.join(str(not_paid_receipt) for not_paid_receipt in receipts_not_paid))
+	# 		receipts_to_be_inserted = receipts_to_be_inserted + r_to_be_inserted
+	# 		logging.info(f"{asyncEtsyApi.shop_id} Final Receipts to be inserted into MongoDB -> {[receipt['receipt_id'] for receipt in receipts_to_be_inserted]}")
+	# 		mongodb_result = await etsyShopManager.insert_receipts(receipts_to_be_inserted, db)
+	# 		if len(mongodb_result) == len(receipts_to_be_inserted):
+	# 			logging.info("successfully inserted all receipts")
+	# 			logging.info("setting last_updated")
+	# 			r.set(f"{etsy_connection_id}:last_updated", current_time)
+	# 	except Exception as e:
+	# 		logging.exception(e)
+	# 	else:
+	# 		is_successfull = True
+	# 	finally:
+	# 		logging.info(f".---'| {asyncEtsyApi.shop_id} {'was Successful' if is_successfull else 'Failed'} |'---.")
+	# 		r.set(f"{etsy_connection_id}:is_running", "False")
+
+async def syncShop(etsy_connection_id: str):
+	logging.info(colored(f"Sync Etsy Shop receipts process started for etsy_shop_connection: {etsy_connection_id}", 'blue', 'on_white', attrs=['reverse', 'blink']))
+	is_successfull = False
+	db = MongoDB().db
+	r = MyRedis().r
+	try:
+		is_running = r.get(f"{etsy_connection_id}:is_running")
+		logging.info(f"is_running: {is_running}")
+		if is_running == "True":
+			logging.info(colored(f"{etsy_connection_id} is already running. Exisiting syncShop function.", 'yellow', 'on_grey', attrs=['blink']))
+			return {
+				"background-task": "already running"
 			}
-			if last_updated is not None:
-				last_updated = int(last_updated)
-				logging.info("last_updated is not None, setting min_created")
-				params["min_created"] = last_updated
-			current_time = int(datetime.now().timestamp())
-			params["max_created"] = current_time
-			if last_updated is not None:
-				logging.info(f"From = {datetime.fromtimestamp(last_updated)}\nTo = {datetime.fromtimestamp(current_time)}")
-			else:
-				logging.info(f"From = -\nTo = {datetime.fromtimestamp(current_time)}")
-			
-			asyncEtsyApi = await AsyncEtsy.getAsyncEtsyApi(etsy_connection_id, db)
-			etsyShopManager = EtsyShopManager(asyncEtsyApi.shop_id)
-			
-			receipts_not_paid, receipts_to_be_inserted = await EtsyShopManager.check_unpaids(etsy_connection_id, asyncEtsyApi, params, r)
-			unpaid_receipts, r_to_be_inserted = await EtsyShopManager.check_for_new_orders(asyncEtsyApi, params)
-			receipts_not_paid = receipts_not_paid + unpaid_receipts
-			receipts_not_paid = set(receipts_not_paid)
-			receipts_not_paid = list(receipts_not_paid)
-			logging.info(f"{asyncEtsyApi.shop_id} Final Merged not yet finished payment processed Receipts -> {receipts_not_paid}")
-			r.set(f"{etsy_connection_id}:unpaid_receipts", ','.join(str(not_paid_receipt) for not_paid_receipt in receipts_not_paid))
-			receipts_to_be_inserted = receipts_to_be_inserted + r_to_be_inserted
-			logging.info(f"{asyncEtsyApi.shop_id} Final Receipts to be inserted into MongoDB -> {[receipt['receipt_id'] for receipt in receipts_to_be_inserted]}")
-			mongodb_result = await etsyShopManager.insert_receipts(receipts_to_be_inserted, db)
-			if len(mongodb_result) == len(receipts_to_be_inserted):
-				logging.info("successfully inserted all receipts")
-				logging.info("setting last_updated")
-				r.set(f"{etsy_connection_id}:last_updated", current_time)
-		except Exception as e:
-			logging.exception(e)
 		else:
-			is_successfull = True
-		finally:
-			logging.info(f".---'| {asyncEtsyApi.shop_id} {'was Successful' if is_successfull else 'Failed'} |'---.")
-			r.set(f"{etsy_connection_id}:is_running", "False")
+			r.set(f"{etsy_connection_id}:is_running", "True")
+		last_updated = r.get(f"{etsy_connection_id}:last_updated")
+		params = {
+			"includes": "Transactions/MainImage,Listings/ShippingTemplate"
+		}
+		if last_updated is not None:
+			last_updated = int(last_updated)
+			logging.info("last_updated is not None, setting min_created")
+			params["min_created"] = last_updated
+		current_time = int(datetime.now().timestamp())
+		params["max_created"] = current_time
+		if last_updated is not None:
+			logging.info(f"From = {datetime.fromtimestamp(last_updated)}")
+			logging.info(f"To = {datetime.fromtimestamp(current_time)}")
+		else:
+			logging.info(f"From = -")
+			logging.info(f"To = {datetime.fromtimestamp(current_time)}")
+			
+		asyncEtsyApi = await AsyncEtsy.getAsyncEtsyApi(etsy_connection_id, db)
+		etsyShopManager = MyEtsyShopManager(asyncEtsyApi.shop_id)
+			
+		receipts_not_paid, receipts_to_be_inserted = await MyEtsyShopManager.check_unpaids(etsy_connection_id, asyncEtsyApi, params, r)
+		unpaid_receipts, r_to_be_inserted = await MyEtsyShopManager.check_for_new_orders(asyncEtsyApi, params)
+		receipts_not_paid = receipts_not_paid + unpaid_receipts
+		receipts_not_paid = set(receipts_not_paid)
+		receipts_not_paid = list(receipts_not_paid)
+		logging.info(f"{asyncEtsyApi.shop_id} FINAL Receipts that paid_tsz was not found -> {colored(receipts_not_paid, attrs=['bold', 'underline'])}")
+		r.set(f"{etsy_connection_id}:unpaid_receipts", ','.join(str(not_paid_receipt) for not_paid_receipt in receipts_not_paid))
+		receipts_to_be_inserted = receipts_to_be_inserted + r_to_be_inserted
+		logging.info(f"{asyncEtsyApi.shop_id} FINAL Receipts to be inserted into MongoDB -> {colored(' , '.join(str(receipt['receipt_id']) for receipt in receipts_to_be_inserted), attrs=['bold', 'underline'])}")
+		mongodb_result = await etsyShopManager.insert_receipts(receipts_to_be_inserted, db)
+		if len(mongodb_result) == len(receipts_to_be_inserted):
+			logging.info(colored("successfully inserted all receipts", 'green', 'on_grey', attrs=['blink']))
+			logging.info("setting last_updated")
+			r.set(f"{etsy_connection_id}:last_updated", current_time)
+	except Exception as e:
+		logging.exception(e)
+	else:
+		is_successfull = True
+	finally:
+		logging.info(f".---'| {colored(asyncEtsyApi.shop_id, 'blue', 'on_grey', attrs=['bold', 'underline'])} {colored('was Successful', 'green', 'on_white', attrs=['reverse', 'blink', 'bold']) if is_successfull else colored('Failed', 'red', 'on_white', attrs=['reverse', 'blink', 'bold'])} |'---.")
+		r.set(f"{etsy_connection_id}:is_running", "False")

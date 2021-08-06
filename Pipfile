@@ -73,6 +73,7 @@ PyYAML = "==5.4.1"
 Rx = "==1.6.1"
 fastapi-mail = "*"
 rq = "*"
+termcolor = "*"
 
 [dev-packages]
 

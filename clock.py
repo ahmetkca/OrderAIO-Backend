@@ -1,16 +1,43 @@
-from rq import Queue
-from worker import conn
+# class bcolors:
+#     HEADER = '\033[95m'
+#     OKBLUE = '\033[94m'
+#     OKCYAN = '\033[96m'
+#     OKGREEN = '\033[92m'
+#     WARNING = '\033[93m'
+#     FAIL = '\033[91m'
+#     ENDC = '\033[0m'
+#     BOLD = '\033[1m'
+#     UNDERLINE = '\033[4m'
+from termcolor import colored, cprint
 
-q = Queue(connection=conn)
+import asyncio
+# from rq import Queue
+# from worker import conn
 
+# q = Queue(connection=conn)
+# from apscheduler.schedulers.blocking import BlockingScheduler
+# from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+# from apscheduler.schedulers.background import BackgroundScheduler
 from MyLogger import Logger
 from MyScheduler import MyScheduler
-from EtsyShopManager import EtsyShopManager
+from EtsyShopManager import syncShop
+# syncShop = EtsyShopManager.syncShop
 from config import SCHEDULED_JOB_INTERVAL, SCHEDULED_JOB_OFFSET
-# from jobs import SyncEtsyShopReceipts
-myScheduler = MyScheduler()
+from threading import Timer
+from jobs import SyncEtsyShopReceipts
+# myScheduler = BlockingScheduler()
+# from apscheduler.executors.pool import ProcessPoolExecutor
+myScheduler = MyScheduler().scheduler
+# executors = {
+#     'default': {'type': 'threadpool', 'max_workers': 20},
+#     'processpool': ProcessPoolExecutor(max_workers=5)
+# }
 logging = Logger().logging
-# syncEtsyShopReceipts = SyncEtsyShopReceipts()
+# import time
+import os
+import random
+syncEtsyShopReceipts = SyncEtsyShopReceipts()
 
 # from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -20,37 +47,60 @@ logging = Logger().logging
 # @sched.scheduled_job()
 
 
-def sync_etsy_shop_receipts(etsy_connection_id):
-	q.enqueue(
-		EtsyShopManager.syncShop,
-		kwargs={"etsy_connection_id": etsy_connection_id},
-	)
+# def sync_etsy_shop_receipts(etsy_connection_id):
+# 	q.enqueue(
+# 		syncShop,
+# 		job_id=etsy_connection_id,
+# 		description=f"Fetch new Receipts and check unpaid receipts for ETSY_SHOP:{etsy_connection_id}",
+# 		kwargs={"etsy_connection_id": etsy_connection_id},
+# 	)
 
 
 job_offset = 0
 # syncEtsyShopReceipts.get_jobs_to_schedule()
-for etsy_connection_id in ["60c93353ee7306108057150e", "60cd6a1adceaba8c03b9b344"]:
-	myScheduler.scheduler.add_job(
-		sync_etsy_shop_receipts,
-		kwargs={"etsy_connection_id": etsy_connection_id}
+for etsy_connection_id in syncEtsyShopReceipts.get_jobs_to_schedule():
+	logging.info(colored(f"ETSY_CONNECTION_ID: {etsy_connection_id}", 'blue', 'on_white', attrs=['reverse', 'blink']))
+	myScheduler.add_job(
+		syncShop,
+		kwargs={"etsy_connection_id": etsy_connection_id},
+		replace_existing=True
 	)
-	myScheduler.scheduler.add_job(
-		sync_etsy_shop_receipts,
+	myScheduler.add_job(
+		syncShop,
 		"interval",
 		minutes=SCHEDULED_JOB_INTERVAL + job_offset,
 		kwargs={"etsy_connection_id": etsy_connection_id},
 		id=f"{etsy_connection_id}:syncShopProcess",
-		name=f"{etsy_connection_id}:syncShopProcess"
+		name=f"{etsy_connection_id}:syncShopProcess",
+		replace_existing=True
 	)
 	job_offset += SCHEDULED_JOB_OFFSET
-myScheduler.scheduler.start()
-# myScheduler.scheduler.print_jobs()
+
+print('Press Ctrl+C to exit')
+myScheduler.start()
+print('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
+def test_jb(a):
+	print(f"TEST JOB {a * random.randint(1, 99)}")
+
+def add_job_after():
+	myScheduler.add_job(
+		test_jb,
+		"interval",
+		seconds=15,
+		args=[random.randint(1, 99)]
+	)
+
+test = Timer(30, add_job_after)
+# Execution will block here until Ctrl+C (Ctrl+Break on Windows) is pressed.
+try:
+	test.start()
+	asyncio.get_event_loop().run_forever()
+except (KeyboardInterrupt, SystemExit):
+	pass
+finally:
+	pass
 
 
-# async def get_etsy_connections():
-# 	logging.info("FastAPI startup_event")
-# 	etsy_connections = await mongodb.db["EtsyShopConnections"].find().to_list(100)
-# 	return etsy_connections
 	
 
 
