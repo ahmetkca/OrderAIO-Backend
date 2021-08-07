@@ -6,8 +6,8 @@ load_dotenv()
 ENV_MODE = os.environ.get("ENV_MODE")
 
 
-SCHEDULED_JOB_INTERVAL = 1 if ENV_MODE == "DEV" or ENV_MODE is None else 15
-SCHEDULED_JOB_OFFSET = 0 if ENV_MODE == "DEV" or ENV_MODE is None else 5
+SCHEDULED_JOB_INTERVAL = 1 if ENV_MODE == "DEV" else 15
+SCHEDULED_JOB_OFFSET = 0 if ENV_MODE == "DEV" else 5
 
 NO_CONCURRENT = 10
 LIMIT = 100
