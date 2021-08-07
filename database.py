@@ -115,7 +115,7 @@ class UpdateReceiptNote(BaseModel):
 class ReceiptNote(BaseModel):
 	id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
 	receipt_id: int
-	created_by: str
+	created_by: Optional[str]
 	updated_by: Optional[str]
 	note: Optional[str]
 	assigned_to: Optional[str]

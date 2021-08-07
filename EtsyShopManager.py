@@ -1,3 +1,4 @@
+import pprint
 from termcolor import colored
 
 from datetime import datetime
@@ -12,7 +13,7 @@ from AsyncEtsyApi import AsyncEtsy, Method, EtsyUrl
 from MyLogger import Logger
 logging = Logger().logging
 
-from database import MongoDB, MyRedis
+from database import MongoDB, MyRedis, ReceiptNote
 
 
 class MyEtsyShopManager:
@@ -26,6 +27,13 @@ class MyEtsyShopManager:
 		return receipt_insert_result.inserted_id
 	
 	async def insert_receipts(self, receipts: List[dict], db):
+		initial_notes = []
+		for receipt in receipts:
+			note: ReceiptNote = ReceiptNote()
+			note.receipt_id = receipt["receipt_id"]
+			note.created_at = datetime.now()
+			initial_notes.append(note)
+			pprint.pprint(note)
 		if len(receipts) <= 0:
 			return []
 		for r in receipts:
@@ -193,7 +201,7 @@ class MyEtsyShopManager:
 	# 		r.set(f"{etsy_connection_id}:is_running", "False")
 
 async def syncShop(etsy_connection_id: str):
-	logging.info(colored(f"Sync Etsy Shop receipts process started for etsy_shop_connection: {etsy_connection_id}", 'blue', 'on_white', attrs=['reverse', 'blink']))
+	logging.info(colored(f"Sync Etsy Shop receipts process started for etsy_shop_connection: {etsy_connection_id}", 'blue', attrs=['reverse', 'blink']))
 	is_successfull = False
 	db = MongoDB().db
 	r = MyRedis().r
@@ -246,5 +254,9 @@ async def syncShop(etsy_connection_id: str):
 	else:
 		is_successfull = True
 	finally:
-		logging.info(f".---'| {colored(asyncEtsyApi.shop_id, 'blue', 'on_grey', attrs=['bold', 'underline'])} {colored('was Successful', 'green', 'on_white', attrs=['reverse', 'blink', 'bold']) if is_successfull else colored('Failed', 'red', 'on_white', attrs=['reverse', 'blink', 'bold'])} |'---.")
 		r.set(f"{etsy_connection_id}:is_running", "False")
+		try:
+			logging.info(f".---'| {colored(asyncEtsyApi.shop_id, 'blue', 'on_grey', attrs=['bold', 'underline'])} {colored('was Successful', 'green', 'on_white', attrs=['reverse', 'blink', 'bold']) if is_successfull else colored('Failed', 'red', 'on_white', attrs=['reverse', 'blink', 'bold'])} |'---.")
+		except UnboundLocalError:
+			logging.info(f".---'| {colored(etsy_connection_id, 'blue', 'on_grey', attrs=['bold', 'underline'])} {colored('was Successful', 'green', 'on_white', attrs=['reverse', 'blink', 'bold']) if is_successfull else colored('Failed', 'red', 'on_white', attrs=['reverse', 'blink', 'bold'])} |'---.")
+		
