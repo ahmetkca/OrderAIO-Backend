@@ -1,4 +1,5 @@
 import pprint
+# from pydantic.fields import T
 from termcolor import colored
 
 from datetime import datetime
@@ -13,8 +14,8 @@ from AsyncEtsyApi import AsyncEtsy, Method, EtsyUrl
 from MyLogger import Logger
 logging = Logger().logging
 
-from database import MongoDB, MyRedis, ReceiptNote
-
+from database import MongoDB, MyRedis, ReceiptNoteStatus
+# import pytz
 
 class MyEtsyShopManager:
 	
@@ -26,14 +27,33 @@ class MyEtsyShopManager:
 		receipt_insert_result = await db["Receipts"].insert_one(receipt)
 		return receipt_insert_result.inserted_id
 	
-	async def insert_receipts(self, receipts: List[dict], db):
-		initial_notes = []
-		for receipt in receipts:
-			note: ReceiptNote = ReceiptNote()
-			note.receipt_id = receipt["receipt_id"]
-			note.created_at = datetime.now()
-			initial_notes.append(note)
+
+	async def insert_notes(self, inserted_ids):
+		if len(inserted_ids) == 0:
+			return
+		mongodb = MongoDB()
+		db = mongodb.db
+		notes = []
+		for receipt_mongodb_id in inserted_ids:
+			receipt = await db["Receipts"].find_one({'_id': receipt_mongodb_id})
+			note = {
+				'receipt_id':receipt["receipt_id"], 
+				'created_at': datetime.now(), 
+				'status': ReceiptNoteStatus.uncompleted
+			}
+			notes.append(note)
 			pprint.pprint(note)
+		try:
+			insert_all_notes_result = await db['Notes'].insert_many(notes)
+		except errors.BulkWriteError as e:
+			panic_list = list(filter(lambda x: x['code'] != 11000, e.details['writeErrors']))
+			if len(panic_list) > 0:
+				logging.info(f"these are not duplicate errors {panic_list}")
+			else:
+				for writeError in e.details['writeErrors']:
+					logging.info(f"{writeError}")
+
+	async def insert_receipts(self, receipts: List[dict], db):
 		if len(receipts) <= 0:
 			return []
 		for r in receipts:
@@ -48,6 +68,8 @@ class MyEtsyShopManager:
 			else:
 				for writeError in e.details['writeErrors']:
 					logging.info(f"{writeError}")
+		else:
+			await self.insert_notes(insert_all_receipts_result.inserted_ids)
 		finally:
 			return [(str(mongodb_id), receipt["receipt_id"]) for mongodb_id, receipt in zip(insert_all_receipts_result.inserted_ids, receipts)]
 		# return insert_all_receipts_result.inserted_ids

@@ -188,9 +188,16 @@ async def get_note_by_receipt_id(receipt_id: int, user: UserData = Depends(is_au
 async def update_note(receipt_id: int, note_data: UpdateReceiptNote = Body(...),
                       user: UserData = Depends(is_authenticated)):
 	note_data = jsonable_encoder(note_data)
+	receipt_note = await mongodb.db["Notes"].find_one({'_id': receipt_id})
+	if receipt_note is not None:
+		try:
+			receipt_note['created_by']
+		except KeyError:
+			receipt_note['created_by'] = user.user
 	note_data["updated_at"] = datetime.now()
 	note_data["updated_by"] = user.user
 	logging.info(note_data)
+
 	# update_fields = {k: v for k, v in note_data.items() if v is not None}
 	update_note_data = await mongodb.db["Notes"].update_one({"receipt_id": receipt_id}, {
 		"$set": note_data
@@ -661,6 +668,9 @@ async def verify_request_tokens(verify_body: VerifyEtsyConnection = Body(...),
 				}
 			})
 		if update_etsy_connection_shop_details_result.modified_count == 1:
+			async with httpx.AsyncClient() as client:
+				res = await client.post('http://127.0.0.1:8003/apscheduler/add/syncShopProcess', json={'etsy_connection_id': etsy_connection_id})
+				# return res_json
 			return JSONResponse(status_code=status.HTTP_200_OK, content={"detail": "Successfully connected to Etsy."})
 		
 

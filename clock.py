@@ -10,7 +10,7 @@
 #     UNDERLINE = '\033[4m'
 from pydantic import BaseModel
 from termcolor import colored
-import asyncio
+# import asyncio
 # from rq import Queue
 # from worker import conn
 
@@ -53,12 +53,12 @@ async def startup_event():
 	for etsy_connection_id in etsy_connections:
 		etsy_connection_id = str(etsy_connection_id['_id'])
 		logging.info(colored(f"ETSY_CONNECTION_ID: {etsy_connection_id}", 'blue', 'on_white', attrs=['reverse', 'blink']))
-		myScheduler.add_job(
-			syncShop,
-			kwargs={"etsy_connection_id": etsy_connection_id},
-			replace_existing=True,
-			jobstore='mongodb'
-		)
+		# myScheduler.add_job(
+		# 	syncShop,
+		# 	kwargs={"etsy_connection_id": etsy_connection_id},
+		# 	replace_existing=True,
+		# 	jobstore='mongodb'
+		# )
 		myScheduler.add_job(
 			syncShop,
 			"interval",
