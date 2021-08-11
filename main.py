@@ -108,18 +108,16 @@ def test(text):
 	print("TEST", text)
 
 
-class SyncShopProcess(BaseModel):
-	etsy_connection_id: str
+# class SyncShopProcess(BaseModel):
+# 	etsy_connection_id: str
+# @app.post('/apscheduler/test')
+# async def apscheduler_test(etsy_connection_id: SyncShopProcess):
+# 	etsy_connection_id = etsy_connection_id.dict().get('etsy_connection_id')
+# 	async with httpx.AsyncClient() as client:
+# 		res = await client.post('http://127.0.0.1:8000/apscheduler/add/syncShopProcess', json={'etsy_connection_id': etsy_connection_id})
 
-
-@app.post('/apscheduler/test')
-async def apscheduler_test(etsy_connection_id: SyncShopProcess):
-	etsy_connection_id = etsy_connection_id.dict().get('etsy_connection_id')
-	async with httpx.AsyncClient() as client:
-		res = await client.post('http://127.0.0.1:8000/apscheduler/add/syncShopProcess', json={'etsy_connection_id': etsy_connection_id})
-
-		res_json = res.json()
-		return res_json
+# 		res_json = res.json()
+# 		return res_json
 
 
 @app.get('/receipt/label/{receipt_id}')
@@ -668,10 +666,29 @@ async def verify_request_tokens(verify_body: VerifyEtsyConnection = Body(...),
 				}
 			})
 		if update_etsy_connection_shop_details_result.modified_count == 1:
-			async with httpx.AsyncClient() as client:
-				res = await client.post('http://127.0.0.1:8003/apscheduler/add/syncShopProcess', json={'etsy_connection_id': str(etsy_connection_id)})
-				# return res_json
-			return JSONResponse(status_code=status.HTTP_200_OK, content={"detail": "Successfully connected to Etsy."})
+			if shop_id is not None and shop_name is not None:
+				return JSONResponse(
+					status_code=status.HTTP_200_OK, 
+					content={
+						"detail": f"{shop_name}:{shop_id} Successfully integrated into OrderAIO.\n({etsy_owner_email})"
+					}
+				)
+			else:
+				return JSONResponse(
+					status_code=status.HTTP_200_OK, 
+					content={
+						"detail": f"No Etsy Shop associated with {etsy_owner_email.upper()} Found."
+					}
+				)
+		else:
+			return JSONResponse(
+					status_code=status.HTTP_200_OK, 
+					content={
+						"detail": f"Etsy api tokens successfully fetched but couldn't update your shop_name, shop_id and email etc."
+					}
+				)
+	else:
+		raise HTTPException(status_code=400, detail="Something went wrong! while getting getting your etsy api tokens.")
 		
 
 
