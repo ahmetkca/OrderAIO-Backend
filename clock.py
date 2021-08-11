@@ -48,7 +48,7 @@ async def startup_event():
 	global job_offset
 	mongodb = MongoDB()
 	logging.info("FastAPI startup_event")
-	etsy_connections = await mongodb.db["EtsyShopConnections"].find().to_list(100)
+	etsy_connections = await mongodb.db["EtsyShopConnections"].find().sort('_id', -1).to_list(100)
 	
 	for etsy_connection_id in etsy_connections:
 		etsy_connection_id = str(etsy_connection_id['_id'])
@@ -57,7 +57,7 @@ async def startup_event():
 		# 	syncShop,
 		# 	kwargs={"etsy_connection_id": etsy_connection_id},
 		# 	replace_existing=True,
-		# 	jobstore='mongodb'
+		# 	# jobstore='mongodb'
 		# )
 		myScheduler.add_job(
 			syncShop,
@@ -67,11 +67,13 @@ async def startup_event():
 			id=f"{etsy_connection_id}:syncShopProcess",
 			name=f"{etsy_connection_id}:syncShopProcess",
 			replace_existing=True,
-			jobstore='mongodb'
+			jobstore='mongodb',
+			max_instances=1,
 		)
 		job_offset += SCHEDULED_JOB_OFFSET
-	print('Press Ctrl+C to exit')
+	# print('Press Ctrl+C to exit')
 	myScheduler.start()
+	myScheduler.print_jobs()
 
 
 
@@ -82,42 +84,42 @@ async def root():
     return {"message": "APScheduler"}
 
 
-def test(foo):
-	print("ITS WORKING HAHAHAHAHAH", foo)
+# def test(foo):
+# 	print("ITS WORKING HAHAHAHAHAH", foo)
 
 
-class SyncShopProcess(BaseModel):
-	etsy_connection_id: str
+# class SyncShopProcess(BaseModel):
+# 	etsy_connection_id: str
 
 
-@app.post('/apscheduler/add/syncShopProcess')
-async def add_sync_shop_job_to_scheduler(etsy_connection_idx: SyncShopProcess):
-	global job_offset
-	etsy_connection_id = etsy_connection_idx.dict().get('etsy_connection_id')
-	check_mongodb = await mongodb.db['apscheduler.jobs'].find_one({"_id": f'{etsy_connection_id}:syncShopProcess'})
-	if check_mongodb is not None:
-		return {"error": f'{etsy_connection_id}:syncShopProcess ALREADY EXISTS.'}
-	# myScheduler.add_job(
-	# 	syncShop,
-	# 	"interval",
-	# 	minutes=SCHEDULED_JOB_INTERVAL + job_offset,
-	# 	kwargs={"etsy_connection_id": etsy_connection_id},
-	# 	id=f"{etsy_connection_id}:syncShopProcess",
-	# 	name=f"{etsy_connection_id}:syncShopProcess",
-	# 	replace_existing=True,
-	# 	jobstore='mongodb'
-	# )
-	myScheduler.add_job(
-		syncShop,
-		"interval",
-		minutes=SCHEDULED_JOB_INTERVAL + job_offset,
-		kwargs={"etsy_connection_id": etsy_connection_id},
-		id=f"{etsy_connection_id}:syncShopProcess",
-		name=f"{etsy_connection_id}:syncShopProcess",
-		replace_existing=True,
-		jobstore='mongodb'
-	)
-	return {"success": f'{etsy_connection_id}:syncShopProcess SUCCESSFULLY ADDED TO THE JOBLIST.'}
+# @app.post('/apscheduler/add/syncShopProcess')
+# async def add_sync_shop_job_to_scheduler(etsy_connection_idx: SyncShopProcess):
+# 	global job_offset
+# 	etsy_connection_id = etsy_connection_idx.dict().get('etsy_connection_id')
+# 	check_mongodb = await mongodb.db['apscheduler.jobs'].find_one({"_id": f'{etsy_connection_id}:syncShopProcess'})
+# 	if check_mongodb is not None:
+# 		return {"error": f'{etsy_connection_id}:syncShopProcess ALREADY EXISTS.'}
+# 	# myScheduler.add_job(
+# 	# 	syncShop,
+# 	# 	"interval",
+# 	# 	minutes=SCHEDULED_JOB_INTERVAL + job_offset,
+# 	# 	kwargs={"etsy_connection_id": etsy_connection_id},
+# 	# 	id=f"{etsy_connection_id}:syncShopProcess",
+# 	# 	name=f"{etsy_connection_id}:syncShopProcess",
+# 	# 	replace_existing=True,
+# 	# 	jobstore='mongodb'
+# 	# )
+# 	myScheduler.add_job(
+# 		syncShop,
+# 		"interval",
+# 		minutes=SCHEDULED_JOB_INTERVAL + job_offset,
+# 		kwargs={"etsy_connection_id": etsy_connection_id},
+# 		id=f"{etsy_connection_id}:syncShopProcess",
+# 		name=f"{etsy_connection_id}:syncShopProcess",
+# 		replace_existing=True,
+# 		jobstore='mongodb'
+# 	)
+# 	return {"success": f'{etsy_connection_id}:syncShopProcess SUCCESSFULLY ADDED TO THE JOBLIST.'}
 
 
 

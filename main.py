@@ -191,7 +191,7 @@ async def update_note(receipt_id: int, note_data: UpdateReceiptNote = Body(...),
 		try:
 			receipt_note['created_by']
 		except KeyError:
-			receipt_note['created_by'] = user.user
+			note_data['created_by'] = user.user
 	note_data["updated_at"] = datetime.now()
 	note_data["updated_by"] = user.user
 	logging.info(note_data)
