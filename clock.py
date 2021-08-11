@@ -92,7 +92,7 @@ class SyncShopProcess(BaseModel):
 
 @app.post('/apscheduler/add/syncShopProcess')
 async def add_sync_shop_job_to_scheduler(etsy_connection_idx: SyncShopProcess):
-	
+	global job_offset
 	etsy_connection_id = etsy_connection_idx.dict().get('etsy_connection_id')
 	check_mongodb = await mongodb.db['apscheduler.jobs'].find_one({"_id": f'{etsy_connection_id}:syncShopProcess'})
 	if check_mongodb is not None:
@@ -108,12 +108,14 @@ async def add_sync_shop_job_to_scheduler(etsy_connection_idx: SyncShopProcess):
 	# 	jobstore='mongodb'
 	# )
 	myScheduler.add_job(
-		test,
-		'interval',
-		seconds=15,
-		kwargs={"foo": "YESSSSSSSSSSSSSSSSSSSS"},
-		jobstore='mongodb',
-		id=f"{etsy_connection_id}:syncShopProcess"
+		syncShop,
+		"interval",
+		minutes=SCHEDULED_JOB_INTERVAL + job_offset,
+		kwargs={"etsy_connection_id": etsy_connection_id},
+		id=f"{etsy_connection_id}:syncShopProcess",
+		name=f"{etsy_connection_id}:syncShopProcess",
+		replace_existing=True,
+		jobstore='mongodb'
 	)
 	return {"success": f'{etsy_connection_id}:syncShopProcess SUCCESSFULLY ADDED TO THE JOBLIST.'}
 

@@ -669,7 +669,7 @@ async def verify_request_tokens(verify_body: VerifyEtsyConnection = Body(...),
 			})
 		if update_etsy_connection_shop_details_result.modified_count == 1:
 			async with httpx.AsyncClient() as client:
-				res = await client.post('http://127.0.0.1:8003/apscheduler/add/syncShopProcess', json={'etsy_connection_id': etsy_connection_id})
+				res = await client.post('http://127.0.0.1:8003/apscheduler/add/syncShopProcess', json={'etsy_connection_id': str(etsy_connection_id)})
 				# return res_json
 			return JSONResponse(status_code=status.HTTP_200_OK, content={"detail": "Successfully connected to Etsy."})
 		
