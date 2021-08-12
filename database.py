@@ -97,6 +97,7 @@ class PyObjectId(ObjectId):
 class ReceiptNoteStatus(str, Enum):
 	completed: str = "COMPLETED"
 	uncompleted: str = "UNCOMPLETED"
+	problem: str = "PROBLEM"
 
 
 class CreateReceiptNote(BaseModel):

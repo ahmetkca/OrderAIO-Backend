@@ -22,7 +22,10 @@ class NoteData(BaseModel):
 
 
 class UserData(BaseModel):
-    """User name, ID and scopes
+    """
+        user = Username (username1, username2 etc.) 
+        user_id = User_id (60cd51a2a44682438f29307e etc.)
+        scopes= scopes (admin, guest etc.)
     """
     
     user: str

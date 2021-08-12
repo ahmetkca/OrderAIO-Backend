@@ -1,3 +1,4 @@
+import enum
 import httpx
 from LabelProvider import StallionCsvFileManager, StallionLabelManager
 from MyEmailService import send_verification_email
@@ -21,13 +22,16 @@ from starlette.requests import Request
 from EtsyAPISession import EtsyAPISession
 from EtsyShopManager import syncShop
 from auth import AuthHandler
-from database import MongoDB, MyRedis, EtsyShopConnection, UpdateEtsyShopConnection, InvitationEmail, User, \
+from database import MongoDB, MyRedis, EtsyShopConnection, ReceiptNoteStatus, UpdateEtsyShopConnection, InvitationEmail, User, \
 	ReceiptNote, CreateReceiptNote, UpdateReceiptNote
 from oauth2 import (oauth2_schema,
                     is_authenticated,
                     verify_password)
 from schemas import UserData, ReceiptStatus
 from EtsyAPI import EtsyAPI, create_etsy_api_with_etsy_connection
+
+from endpoints import assignments
+
 # from MyScheduler import MyScheduler
 from config import ENV_MODE, FRONTEND_URI, JWT_SECRET, SCHEDULED_JOB_INTERVAL, SCHEDULED_JOB_OFFSET
 import tempfile
@@ -88,6 +92,9 @@ async def startup_event():
 async def shutdown_event():
 	await mongodb.client.close()
 	r.close()
+
+
+app.include_router(assignments.router)
 
 
 @app.get("/")
@@ -397,23 +404,23 @@ async def search(request: Request,
                  from_date: Optional[datetime] = None,
                  to_date: Optional[datetime] = None,
                  query: Optional[str] = None,
-                 is_completed: Optional[bool] = None,
+                 receipt_status: Optional[ReceiptNoteStatus] = None,
                  shop_name: Optional[str] = None,
                  projection: Optional[List[str]] = Query(None),
                  user: UserData = Depends(is_authenticated)):
-	path = request.url.path + "?" + request.url.query
-	cached = r.get(path)
+	
 	logging.info(projection)
-	if cached is not None:
-		logging.info(f"{path} is already cached.")
-		res = ujson.loads(cached)
-		return res
+	# path = request.url.path + "?" + request.url.query
+	# cached = r.get(path)
+	# if cached is not None:
+	# 	logging.info(f"{path} is already cached.")
+	# 	res = ujson.loads(cached)
+	# 	return res
 	mongodb_filter = {}
 	collation = {}
-	if is_completed is None and from_date is None and to_date is None and query is None and shop_name is None:
+	if  from_date is None and to_date is None and query is None and shop_name is None and receipt_status is None:
 		return {"error": "No query parameter(s) provided."}
-	if is_completed is not None:
-		mongodb_filter["is_completed"] = is_completed
+	
 	if shop_name is not None:
 		mongodb_filter["shop_name"] = shop_name
 	if from_date is not None and to_date is not None:
@@ -453,12 +460,53 @@ async def search(request: Request,
 			if p == "_id":
 				continue
 			proj[p] = True
+	# if note_status is not None:
+	# 	receipts = await mongodb.db['Receipts'].aggregate(
+	# 		[
+	# 			{
+	# 				"$lookup": {
+						
+	# 					"from": "Notes",
+	# 					"localField": "receipt_id",
+	# 					"foreignField": "receipt_id",
+	# 					"as": "Note"
+						
+	# 				}
+	# 			}, {
+	# 				"$match": {
+	# 					"Note.status": note_status
+	# 				}
+	# 			}, {
+	# 				"$unwind": "$Note"
+	# 			}
+	# 		]
+	# 	)
 	logging.info(mongodb_filter)
 	receipts = await mongodb.db["Receipts"].find(mongodb_filter,
 	                                             collation=collation if collation is not None and len(
 		                                             collation.keys()) > 0 else None,
 	                                             projection=proj).to_list(10000)
-
+	if receipt_status is not None:
+		notes = await mongodb.db['Notes'].find({'receipt_id': { '$in': [receipt['receipt_id'] for receipt in receipts] }}).to_list(99999)
+		logging.info(notes)
+		logging.info(len(notes))
+		new_notes = []
+		for i, note in enumerate(notes):
+			logging.info(f"{note['receipt_id']} : {note['status']} : {receipt_status}")
+			if note['status'] == receipt_status:
+				# notes.pop(i)
+				new_notes.append(note['receipt_id'])
+		
+		# notes_ids = [note['receipt_id'] for note in notes]
+		notes_ids = new_notes
+		logging.info(len(notes_ids))
+		new_receipts = []
+		for i, receipt in enumerate(receipts):
+			logging.info(f"{receipt['receipt_id']} : {receipt['receipt_id'] in notes_ids}")
+			if receipt['receipt_id'] in notes_ids:
+				# receipts.pop(i)
+				new_receipts.append(receipt)
+		receipts = new_receipts
 	for receipt in receipts:
 		try:
 			receipt["max_due_date"] = receipt["max_due_date"].isoformat()
@@ -466,7 +514,8 @@ async def search(request: Request,
 		except KeyError:
 			continue
 	try:
-		r.set(path, ujson.dumps(receipts), ex=1800, nx=True)
+		# r.set(path, ujson.dumps(receipts), ex=1800, nx=True)
+		...
 	except ResponseError as e:
 		print(e)
 	finally:
