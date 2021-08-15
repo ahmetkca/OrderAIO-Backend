@@ -36,7 +36,7 @@ class StallionCsvFileManager:
 		csv_reader = csv.DictReader(file_content.decode('utf-8').split('\n'), dialect="excel")
 		insert_data = []
 		for row in csv_reader:
-			logging.info(f"{row['Ship Code']} : {row['Order ID']}")
+			logging.debug(f"{row['Ship Code']} : {row['Order ID']}")
 			if not row['Order ID'].isnumeric():
 				continue
 			insert_data.append({
@@ -56,12 +56,13 @@ class StallionCsvFileManager:
 			logging.info(insert_many_result.inserted_ids)
 		except errors.BulkWriteError as e:
 			# logging.error(f"Articles bulk write insertion error {e}")
-			panic_list = list(filter(lambda x: x['code'] != 11000, e.details['writeErrors']))
-			if len(panic_list) > 0:
-				logging.info(f"these are not duplicate errors {panic_list}")
-			else:
-				for writeError in e.details['writeErrors']:
-					logging.info(f"{writeError}")
+			# panic_list = list(filter(lambda x: x['code'] != 11000, e.details['writeErrors']))
+			# if len(panic_list) > 0:
+			# 	logging.info(f"these are not duplicate errors {panic_list}")
+			# else:
+			# 	for writeError in e.details['writeErrors']:
+			# 		logging.info(f"{writeError}")
+			pass
 
 
 class StallionLabelManager(LabelProvider):

@@ -74,6 +74,9 @@ Rx = "==1.6.1"
 fastapi-mail = "*"
 rq = "*"
 termcolor = "*"
+uvloop = "*"
+httptools = "*"
+fastapi-socketio = "*"
 
 [dev-packages]
 

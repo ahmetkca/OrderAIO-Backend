@@ -1,5 +1,7 @@
+# from MySocketIO import MySocketManger
 import enum
 import httpx
+import pymongo
 from LabelProvider import StallionCsvFileManager, StallionLabelManager
 from MyEmailService import send_verification_email
 import ujson
@@ -55,6 +57,12 @@ origins = [
 
 print(origins)
 app = FastAPI()
+# socket_manager = MySocketManger(app).socket_manager
+# @app.sio.on('connection')
+# async def handle_connection(sid, *args, **kwargs):
+# 	logging.info(sid)
+# print(dir(socket_manager))
+# print(dir(app.sio))
 
 
 @app.on_event("startup")
@@ -177,13 +185,19 @@ async def create_note(note_data: CreateReceiptNote = Body(...), user: UserData =
 
 
 @app.get("/user/note/{receipt_id}", )
-async def get_note_by_receipt_id(receipt_id: int, user: UserData = Depends(is_authenticated)):
+async def get_note_by_receipt_id(receipt_id: str, user: UserData = Depends(is_authenticated)):
 	logging.info(receipt_id)
-	note = await mongodb.db["Notes"].find_one({"receipt_id": receipt_id})
+	logging.info(receipt_id.split(','))
+	receipt_ids = [int(_) for _ in receipt_id.split(',')]
+	# notes = await mongodb.db["Notes"].find({"receipt_id": {"$in":receipt_ids}})
+	notes: List[dict] = []
+	async for note in mongodb.db["Notes"].find({"receipt_id": {"$in":receipt_ids}}, projection={"_id": False}):
+		notes.append(note)
+	note = notes
 	if note is not None:
-		logging.info(f"Note is not None {note}")
-		note["_id"] = str(note["_id"])
-		return note
+		# logging.info(f"Note is not None {note}")
+		# note["_id"] = str(note["_id"])
+		return notes
 	else:
 		logging.info("Note is None")
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"There is no note found for {receipt_id}")
@@ -485,7 +499,7 @@ async def search(request: Request,
 	receipts = await mongodb.db["Receipts"].find(mongodb_filter,
 	                                             collation=collation if collation is not None and len(
 		                                             collation.keys()) > 0 else None,
-	                                             projection=proj).to_list(10000)
+	                                             projection=proj).sort("max_due_date", pymongo.ASCENDING).to_list(10000)
 	if receipt_status is not None:
 		notes = await mongodb.db['Notes'].find({'receipt_id': { '$in': [receipt['receipt_id'] for receipt in receipts] }}).to_list(99999)
 		logging.info(notes)
