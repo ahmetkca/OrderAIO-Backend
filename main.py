@@ -33,6 +33,7 @@ from schemas import UserData, ReceiptStatus
 from EtsyAPI import EtsyAPI, create_etsy_api_with_etsy_connection
 
 from endpoints import assignments
+from endpoints import check_same_address_same_name
 
 # from MyScheduler import MyScheduler
 from config import ENV_MODE, FRONTEND_URI, JWT_SECRET, SCHEDULED_JOB_INTERVAL, SCHEDULED_JOB_OFFSET
@@ -103,6 +104,7 @@ async def shutdown_event():
 
 
 app.include_router(assignments.router)
+app.include_router(check_same_address_same_name.router)
 
 
 @app.get("/")
@@ -194,7 +196,7 @@ async def get_note_by_receipt_id(receipt_id: str, user: UserData = Depends(is_au
 	async for note in mongodb.db["Notes"].find({"receipt_id": {"$in":receipt_ids}}, projection={"_id": False}):
 		notes.append(note)
 	note = notes
-	if note is not None:
+	if note is not None and len(note) != 0:
 		# logging.info(f"Note is not None {note}")
 		# note["_id"] = str(note["_id"])
 		return notes
