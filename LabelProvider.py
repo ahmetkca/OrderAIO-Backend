@@ -109,6 +109,18 @@ class StallionAPI:
 			else:
 				raise LabelNotFound(shipment_id)
 
+	async def get_status_by_order_id(self, order_id: int):
+		async with AsyncClient() as client:
+			headers = {
+				"Authorization": f"Bearer {self.api_token}",
+				'accept': 'application/json'
+			}
+			params = {
+				'order_id': order_id,
+			}
+			res = await client.get(f'{STALLION_API_BASE_URL}/track', headers=headers, params=params)
+			return res.json()
+
 
 class LabelNotFound(Exception):
 	def __init__(self, shipment_id):
