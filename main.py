@@ -34,6 +34,8 @@ from EtsyAPI import EtsyAPI, create_etsy_api_with_etsy_connection
 
 from endpoints import assignments
 from endpoints import check_same_address_same_name
+from endpoints import new_search
+from endpoints import shipments
 
 # from MyScheduler import MyScheduler
 from config import ENV_MODE, FRONTEND_URI, JWT_SECRET, SCHEDULED_JOB_INTERVAL, SCHEDULED_JOB_OFFSET
@@ -105,6 +107,8 @@ async def shutdown_event():
 
 app.include_router(assignments.router)
 app.include_router(check_same_address_same_name.router)
+app.include_router(new_search.router)
+app.include_router(shipments.router)
 
 
 @app.get("/")
@@ -184,6 +188,20 @@ async def create_note(note_data: CreateReceiptNote = Body(...), user: UserData =
 	logging.info(inserted_note_Data)
 	inserted_note_Data["_id"] = str(inserted_note_Data["_id"])
 	return inserted_note_Data
+
+
+class GetNoteBody(BaseModel):
+	receipt_ids: Optional[List[int]] = None
+
+@app.post("/user/multiple_notes")
+async def get_multiple_notes(body: GetNoteBody = Body(...), user: UserData = Depends(is_authenticated)):
+	notes = []
+	async for note in mongodb.db["Notes"].find({"receipt_id": {"$in":body.dict().get('receipt_ids')}}, projection={"_id": False}):
+		notes.append(note)
+	if notes is not None and len(notes) != 0:
+		return notes
+	else:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No notes found for given receipt ids.")
 
 
 @app.get("/user/note/{receipt_id}", )
