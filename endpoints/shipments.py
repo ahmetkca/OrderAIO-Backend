@@ -36,3 +36,7 @@ async def purchase_stallion_label(order_id: int, user: UserData = Depends(is_aut
 	# if there is enough creadit then go ahead and purchase the label
 	# with given name, address, package content, package size, etc.
 	...
+
+@router.get('/')
+async def return_all_shipments_by_parameters():
+	...
