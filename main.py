@@ -2,7 +2,7 @@
 import enum
 import httpx
 import pymongo
-from LabelProvider import StallionCsvFileManager, StallionLabelManager
+from LabelProvider import DirectlyFromStallionAPI, StallionCsvFileManager, StallionLabelManager
 from MyEmailService import send_verification_email
 import ujson
 import pprint
@@ -143,7 +143,8 @@ def test(text):
 
 @app.get('/receipt/label/{receipt_id}')
 async def get_label_by_receipt_id(receipt_id: int, user: UserData = Depends(is_authenticated)):
-	label_bytes = await StallionLabelManager.get_label_by_receipt_id(receipt_id)
+	# label_bytes = await StallionLabelManager.get_label_by_receipt_id(receipt_id)
+	label_bytes = await DirectlyFromStallionAPI.get_label_by_receipt_id(receipt_id)
 	if label_bytes is None:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"There is no label associated with the given Receipt ID ({receipt_id})")
 	def iterfile():
