@@ -4,6 +4,8 @@ from schemas import UserData
 from fastapi import APIRouter, Depends, HTTPException
 from oauth2 import is_authenticated
 from database import MongoDB
+from MyLogger import Logger
+logging = Logger().logging
 
 mongodb = MongoDB()
 
@@ -28,11 +30,11 @@ async def get_same_name_same_address(
 	if receipt_id_to_exclude is None and name is None and first_line is None and second_line is None and city is None and state is None and zip is None:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No parameters provided.")
 	if receipt_id_to_exclude is not None:
-		filter['receipt_id_to_exclude'] = receipt_id_to_exclude
+		filter['receipt_id'] = {"$ne": receipt_id_to_exclude}
 	if name is not None:
 		filter['name'] = name
 	if first_line is not None:
-		filter['second_line'] = first_line
+		filter['first_line'] = first_line
 	if second_line is not None:
 		filter['second_line'] = second_line
 	if city is not None:
@@ -41,7 +43,14 @@ async def get_same_name_same_address(
 		filter['state'] = state
 	if zip is not None:
 		filter['zip'] = zip
-	result_from_mongodb = await mongodb.db['Receipts'].find(filter, projection={"receipt_id": True, "_id": False}).to_list(10)
+	logging.info(filter)
+	projection = {
+		"receipt_id": True,
+		"max_due_date": True,
+		"_id": False
+	}
+	result_from_mongodb = await mongodb.db['Receipts'].find(filter, projection=projection).to_list(10)
+	logging.info(result_from_mongodb)
 	if result_from_mongodb is None or len(result_from_mongodb) == 0:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No same address same name receipt found.")
 	return result_from_mongodb
