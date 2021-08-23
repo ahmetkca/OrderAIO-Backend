@@ -1,9 +1,12 @@
 import os
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(override=True)
 
 
 ENV_MODE = os.environ.get("ENV_MODE")
+
+DEFAULT_SEARCH_LIMIT = 10
+DEFAULT_SEARCH_PAGE = 1
 
 
 SCHEDULED_JOB_INTERVAL = 2 if ENV_MODE == "DEV" else 25
@@ -20,6 +23,7 @@ MAIL_EMAIL = os.environ.get("MAIL_EMAIL")
 MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
 MONGODB_URI = os.environ.get("MONGODB_URI")
 REDIS_TLS_URL = os.environ.get("REDIS_TLS_URL")
+print(REDIS_TLS_URL)
 REDIS_URL = os.environ.get("REDIS_URL")
 ETSY_API_BASE_URI = os.environ.get("ETSY_API_BASE_URI")
 ETSY_API_KEY = os.environ.get("ETSY_API_KEY")

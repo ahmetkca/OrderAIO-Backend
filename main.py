@@ -2,7 +2,7 @@
 import enum
 import httpx
 import pymongo
-from LabelProvider import DirectlyFromStallionAPI, StallionCsvFileManager, StallionLabelManager
+from LabelProvider import DirectlyFromStallionAPI, RetrieveOnlyReadyLabel, StallionCsvFileManager, StallionLabelManager
 from MyEmailService import send_verification_email
 import ujson
 import pprint
@@ -36,6 +36,7 @@ from endpoints import assignments
 from endpoints import check_same_address_same_name
 from endpoints import new_search
 from endpoints import shipments
+from endpoints import connections_info
 
 # from MyScheduler import MyScheduler
 from config import ENV_MODE, FRONTEND_URI, JWT_SECRET, SCHEDULED_JOB_INTERVAL, SCHEDULED_JOB_OFFSET
@@ -109,6 +110,7 @@ app.include_router(assignments.router)
 app.include_router(check_same_address_same_name.router)
 app.include_router(new_search.router)
 app.include_router(shipments.router)
+app.include_router(connections_info.router)
 
 
 @app.get("/")
@@ -144,7 +146,8 @@ def test(text):
 @app.get('/receipt/label/{receipt_id}')
 async def get_label_by_receipt_id(receipt_id: int, user: UserData = Depends(is_authenticated)):
 	# label_bytes = await StallionLabelManager.get_label_by_receipt_id(receipt_id)
-	label_bytes = await DirectlyFromStallionAPI.get_label_by_receipt_id(receipt_id)
+	# label_bytes = await DirectlyFromStallionAPI.get_label_by_receipt_id(receipt_id)
+	label_bytes = await RetrieveOnlyReadyLabel.get_label_by_receipt_id(receipt_id)
 	if label_bytes is None:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"There is no label associated with the given Receipt ID ({receipt_id})")
 	def iterfile():
@@ -170,7 +173,7 @@ async def create_upload_file( background_tasks: BackgroundTasks, file: UploadFil
 
 @app.get("/users")
 async def get_all_users(user: UserData = Depends(is_authenticated)):
-	all_users = await mongodb.db["Users"].find(projection={"username": True, "email": True}).to_list(100)
+	all_users = await mongodb.db["Users"].find(projection={"username": True, "email": True}).to_list(length=None)
 	return all_users
 
 

@@ -7,6 +7,7 @@ from oauth2 import is_authenticated
 from database import MongoDB, ReceiptNoteStatus
 from pydantic import BaseModel
 import pprint
+from config import DEFAULT_SEARCH_PAGE, DEFAULT_SEARCH_LIMIT
 
 mongodb = MongoDB()
 
@@ -23,27 +24,33 @@ class NewSearchBody(BaseModel):
 	query: Optional[str] = None
 	receipt_status: Optional[ReceiptNoteStatus] = None
 	shop_name: Optional[str] = None
-	projection: Optional[List[str]] = None
+	projection: Optional[List[str]] = None,
+	item_type: Optional[str] = None
 	
 
 
 @router.post('/')
 async def new_search(
 	search_body: NewSearchBody,
+	page: int = DEFAULT_SEARCH_PAGE,
+	limit: int = DEFAULT_SEARCH_LIMIT,
 	user: UserData = Depends(is_authenticated) 
 ):
+	if limit > DEFAULT_SEARCH_LIMIT:
+		limit = DEFAULT_SEARCH_LIMIT
+
 	# search_body = search_body.dict()
 	# search_body = {k: search_body[k] for k in search_body.keys() if search_body[k] is not None}
 	pprint.pprint(search_body)
+	# pipeline = []
 	collation = {}
 	match = {}
 	project = {
-		# "Note": False,
-		# "Note._id": False,
 		"_id": False,
-		# "receipt_id": True
 		"Note": True
 	}
+	if search_body.item_type is not None:
+		match['Listings.title'] = search_body.item_type
 	if search_body.receipt_status is not None:
 		match['Note.status'] = search_body.receipt_status
 	if search_body.shop_name is not None:
@@ -63,8 +70,8 @@ async def new_search(
 			"$lte": search_body.to_date,
 			"$gte": search_body.to_date
 		}
+	is_int: bool = False
 	if search_body.query is not None:
-		is_int: bool = False
 		try:
 			int(search_body.query)
 		except ValueError:
@@ -97,6 +104,10 @@ async def new_search(
 		}, {
 			'$match': {**match}
 		}, {
+			"$sort": {
+				'max_due_date': 1,
+			}
+		}, {
 			'$unwind': {
 				'path': '$Note',
 				'preserveNullAndEmptyArrays': True
@@ -105,8 +116,19 @@ async def new_search(
 			"$project": {**project}
 		}, {
 			"$unset": ['Note._id']
+		}, {
+			"$facet": {
+				'pagination': [
+					{ '$count': 'total' },
+					{'$addFields': { 'page': page } }
+				],
+				'data': [
+					{ '$skip': (page - 1) * limit },
+					{ '$limit': limit }
+				]
+			}
 		}
-	]).to_list(100)
+	]).to_list(length=limit)
 	# print()
 	# search_result = []
 	# async for receipt in mongodb_search_result:

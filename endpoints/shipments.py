@@ -7,7 +7,7 @@ from oauth2 import is_authenticated
 from database import MongoDB, ReceiptNoteStatus
 from pydantic import BaseModel
 import pprint
-from LabelProvider import StallionAPI
+from LabelProvider import PurchaseLabelData, StallionAPI
 from config import STALLION_API_TOKEN
 
 mongodb = MongoDB()
@@ -30,12 +30,23 @@ async def get_stallion_status_by_order_id(order_id: int, user: UserData = Depend
 
 
 @router.post('/purchase/{order_id}')
-async def purchase_stallion_label(order_id: int, user: UserData = Depends(is_authenticated)):
+async def purchase_stallion_label(order_id: str, purchase_label_data: PurchaseLabelData, user: UserData = Depends(is_authenticated)):
 	# First check if there is already label with given order id
 	# if there is no label found with the given id then check if there is enough credit to purchase label
 	# if there is enough creadit then go ahead and purchase the label
 	# with given name, address, package content, package size, etc.
-	...
+	stallion_api: StallionAPI = StallionAPI(api_token=STALLION_API_TOKEN)
+	res = await stallion_api.purchase_label(purchase_label_data)
+	print(res.json())
+	if res.status_code == 200:
+		res_json = res.json()
+		if res_json['success']:
+			print(res_json)
+		else:
+			raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=res_json['errors'])
+	else:
+		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Something went wrong! while trying to purchase label.")
+	
 
 @router.get('/')
 async def return_all_shipments_by_parameters():
