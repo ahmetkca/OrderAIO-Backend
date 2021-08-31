@@ -1,7 +1,7 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.mongodb import MongoDBJobStore
 from MyLogger import Logger
-from config import MONGODB_URI
+from config import ENV_MODE, MONGODB_URI
 logging = Logger().logging
 # from database import MongoDB
 # mongodb = MongoDB()
@@ -39,7 +39,10 @@ class MyScheduler(object):
 		# }
 		self.jobs = {}
 		self.scheduler: AsyncIOScheduler = self._instance.scheduler
-		self.scheduler.configure(jobstores=jobstores, job_defaults={'misfire_grace_time': 3600})
+		if ENV_MODE == "DEV":
+			self.scheduler.configure( job_defaults={'misfire_grace_time': 3600})
+		else:
+			self.scheduler.configure(jobstores=jobstores, job_defaults={'misfire_grace_time': 3600})
 		# self.scheduler.start()
 
 	def add_job(self, my_id, *args, **kwargs):

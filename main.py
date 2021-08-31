@@ -2,6 +2,7 @@
 import enum
 import httpx
 import pymongo
+from socketio.asyncio_server import AsyncServer
 from LabelProvider import DirectlyFromStallionAPI, RetrieveOnlyReadyLabel, StallionCsvFileManager, StallionLabelManager
 from MyEmailService import send_verification_email
 import ujson
@@ -38,6 +39,8 @@ from endpoints import new_search
 from endpoints import shipments
 from endpoints import connections_info
 
+from MySocketManager import MySocketManager as SocketManager
+
 # from MyScheduler import MyScheduler
 from config import ENV_MODE, FRONTEND_URI, JWT_SECRET, SCHEDULED_JOB_INTERVAL, SCHEDULED_JOB_OFFSET
 import tempfile
@@ -61,6 +64,39 @@ origins = [
 
 print(origins)
 app = FastAPI()
+socketio_manager = SocketManager(app)
+sm: AsyncServer = socketio_manager.get_socket_manager()
+connected_users = set()
+
+@sm.on('connect')
+async def on_connect(sid, *args, **kwargs):
+	print('a user connected ', sid)
+
+
+@sm.on('disconnect')
+async def on_disconnect(sid, *args, **kwargs):
+	sm.leave_room(sid, room='orderaio')
+	ss = await sm.get_session(sid)
+	connected_users.remove(ss['username'])
+	print('a user disconnected ', sid)
+
+
+@sm.on('user_connected')
+async def on_user_connected(sid, data, *args, **kwargs):
+	print(data)
+	await sm.save_session(sid, {'username': data['username']})
+	sm.enter_room(sid, room='orderaio')
+	connected_users.add(data['username'])
+	
+
+
+# @sm.on('user_connect')
+# async def on_user_connect(sid, data, *args, **kwargs):
+# 	print(data)
+# 	connected_users.add(data['username'])
+# 	sm.enter_room(sid, 'orderaio')
+
+
 # socket_manager = MySocketManger(app).socket_manager
 # @app.sio.on('connection')
 # async def handle_connection(sid, *args, **kwargs):
@@ -116,7 +152,11 @@ app.include_router(connections_info.router)
 @app.get("/")
 async def root():
 	# myScheduler.scheduler.print_jobs()
-	return {"root": "boot"}
+	print(connected_users)
+	return {
+		"root": "boot",
+		'connected_users': connected_users
+	}
 
 
 app.add_middleware(

@@ -5,7 +5,7 @@ from enum import Enum
 from authlib.integrations.httpx_client import AsyncOAuth1Client
 import asyncio
 from math import ceil
-from config import ETSY_API_BASE_URI, NO_CONCURRENT, LIMIT
+from config import ETSY_API_BASE_URI, NO_CONCURRENT, LIMIT, ENV_MODE
 
 from bson import ObjectId
 from httpx import Response
@@ -49,6 +49,14 @@ class AsyncEtsy:
 			# print(params)
 			res = await etsy.request(method=method.value, url=url, params=params, timeout=None)
 			# print(f"({url}) Fetched page #{res.json()['params']['page']} {res.status_code}")
+			if res.status_code != 200:
+				logging.info(f"{colored(self.shop_id, 'blue', 'on_grey', attrs=['bold', 'underline'])} (Text) =)> {res.text}")
+				logging.info(f"{colored(self.shop_id, 'blue', 'on_grey', attrs=['bold', 'underline'])} (Reason Phrase) =)> {res.reason_phrase}")
+				try:
+					logging.info(f"{colored(self.shop_id, 'blue', 'on_grey', attrs=['bold', 'underline'])} (Error Detail) =)> {res.headers['X-Error-Detail']}")
+				except KeyError:
+					pass
+
 			logging.info(f"{colored(self.shop_id, 'blue', 'on_grey', attrs=['bold', 'underline'])} Done ... ({url}) ({colored(str(res.status_code), 'green' if res.status_code == 200 else 'red', attrs=['reverse', 'blink', 'bold', 'underline'])})")
 		return res
 	
@@ -64,6 +72,10 @@ class AsyncEtsy:
 		if params is None:
 			params = {}
 		count_res = await self.request(method, url, params)
+		################################
+		if count_res.status_code != 200:
+			return responses
+		################################
 		count = count_res.json()["count"]
 		logging.info(colored(f"{colored(self.shop_id, 'blue', 'on_grey', attrs=['bold', 'underline'])} Total {count} item has been found for {url}", 'blue', 'on_white', attrs=['reverse', 'blink']))
 		dltasks = set()

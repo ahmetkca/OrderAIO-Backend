@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "1ee9e64d8ef5aab5089e7b5ee9671b426d4e056c36d9701b55b2d5e1cd685a38"
+            "sha256": "e1a9560b91763c6d0d5b3e121b85aac8a7273fe5c0c3ad2d69419d67c4982323"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -315,11 +315,11 @@
         },
         "fakeredis": {
             "hashes": [
-                "sha256:18fc1808d2ce72169d3f11acdb524a00ef96bd29970c6d34cfeb2edb3fc0c020",
-                "sha256:f1ffdb134538e6d7c909ddfb4fc5edeb4a73d0ea07245bc69b8135fbc4144b04"
+                "sha256:11ccfc9769d718d37e45b382e64a6ba02586b622afa0371a6bd85766d72255f3",
+                "sha256:3449b306f3a85102b28f8180c24722ef966fcb1e3c744758b6f635ec80321a5c"
             ],
             "markers": "python_version >= '3.5'",
-            "version": "==1.5.2"
+            "version": "==1.6.0"
         },
         "fastapi": {
             "hashes": [
@@ -821,7 +821,7 @@
                 "sha256:7ed57f6c024abdfeb9b25c74c0c00ffc18da47d903e8d72deecb87584370d1fc",
                 "sha256:ca807c9e1f168e96dea412d64dd834fb47c470d27fd83da0504aa4b248ba2544"
             ],
-            "markers": "python_version >= '3.6'",
+            "index": "pypi",
             "version": "==5.4.0"
         },
         "pytz": {

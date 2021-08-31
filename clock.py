@@ -10,6 +10,7 @@
 #     UNDERLINE = '\033[4m'
 from pydantic import BaseModel
 from termcolor import colored
+
 # import asyncio
 # from rq import Queue
 # from worker import conn
@@ -22,13 +23,15 @@ from termcolor import colored
 from MyLogger import Logger
 from MyScheduler import MyScheduler
 from EtsyShopManager import syncShop
+
 # syncShop = EtsyShopManager.syncShop
-from config import SCHEDULED_JOB_INTERVAL, SCHEDULED_JOB_OFFSET
+from config import SCHEDULED_JOB_INTERVAL, SCHEDULED_JOB_OFFSET, ENV_MODE
+
 # from threading import Timer
 # from jobs import SyncEtsyShopReceipts
 # myScheduler = BlockingScheduler()
 # from apscheduler.executors.pool import ProcessPoolExecutor
-myScheduler = MyScheduler().scheduler
+
 # executors = {
 #     'default': {'type': 'threadpool', 'max_workers': 20},
 #     'processpool': ProcessPoolExecutor(max_workers=5)
@@ -38,51 +41,81 @@ logging = Logger().logging
 import os
 from database import MongoDB
 from fastapi import FastAPI
+
 mongodb = MongoDB()
 
 app = FastAPI()
 
 job_offset = 0
+myScheduler = MyScheduler().scheduler
+
 @app.on_event("startup")
 async def startup_event():
-	global job_offset
-	mongodb = MongoDB()
-	logging.info("FastAPI startup_event")
-	etsy_connections = await mongodb.db["EtsyShopConnections"].find().sort('_id', -1).to_list(100)
-	
-	for etsy_connection_id in etsy_connections:
-		etsy_connection_id = str(etsy_connection_id['_id'])
-		logging.info(colored(f"ETSY_CONNECTION_ID: {etsy_connection_id}", 'blue', 'on_white', attrs=['reverse', 'blink']))
-		# myScheduler.add_job(
-		# 	syncShop,
-		# 	kwargs={"etsy_connection_id": etsy_connection_id},
-		# 	replace_existing=True,
-		# 	# jobstore='mongodb'
-		# )
-		myScheduler.add_job(
-			syncShop,
-			"interval",
-			minutes=SCHEDULED_JOB_INTERVAL + job_offset,
-			kwargs={"etsy_connection_id": etsy_connection_id},
-			id=f"{etsy_connection_id}:syncShopProcess",
-			name=f"{etsy_connection_id}:syncShopProcess",
-			replace_existing=True,
-			jobstore='mongodb',
-			max_instances=1,
-		)
-		job_offset += SCHEDULED_JOB_OFFSET
-	# print('Press Ctrl+C to exit')
-	myScheduler.start()
-	myScheduler.print_jobs()
+    # if ENV_MODE == "DEV":
+        # return
+    
+    global job_offset
+    mongodb = MongoDB()
+    logging.info("FastAPI startup_event")
+    etsy_connections = (
+        await mongodb.db["EtsyShopConnections"]
+        .find()
+        .sort("_id", -1)
+        .to_list(length=None)
+    )
 
+    for etsy_connection_id in etsy_connections:
+        etsy_connection_id = str(etsy_connection_id["_id"])
+        # if etsy_connection_id != "61140f2929ed418318574ea0":
 
+        #     continue
+        logging.info(
+            colored(
+                f"ETSY_CONNECTION_ID: {etsy_connection_id}",
+                "blue",
+                "on_white",
+                attrs=["reverse", "blink"],
+            )
+        )
+        myScheduler.add_job(
+            syncShop,
+            kwargs={"etsy_connection_id": etsy_connection_id},
+            replace_existing=True,
+            max_instances=1,
+            # jobstore='mongodb'
+        )
+        if ENV_MODE != "DEV":
+            myScheduler.add_job(
+                syncShop,
+                "interval",
+                minutes=SCHEDULED_JOB_INTERVAL + job_offset,
+                kwargs={"etsy_connection_id": etsy_connection_id},
+                id=f"{etsy_connection_id}:syncShopProcess",
+                name=f"{etsy_connection_id}:syncShopProcess",
+                replace_existing=True,
+                jobstore="default" if ENV_MODE == "DEV" else "mongodb",
+                max_instances=1,
+            )
+            job_offset += SCHEDULED_JOB_OFFSET
+    # print('Press Ctrl+C to exit')
+    myScheduler.start()
+    myScheduler.print_jobs()
 
-	
 
 @app.get("/")
 async def root():
     return {"message": "APScheduler"}
 
+
+@app.post("/syncShopProcess/{etsy_connection_id}")
+async def sync_shop_process(etsy_connection_id: str):
+    await syncShop(etsy_connection_id)
+    # myScheduler.add_job(
+    #     syncShop,
+    #     kwargs={"etsy_connection_id": etsy_connection_id},
+    #     replace_existing=True,
+    #     max_instances=1,
+    # )
 
 # def test(foo):
 # 	print("ITS WORKING HAHAHAHAHAH", foo)
@@ -120,7 +153,6 @@ async def root():
 # 		jobstore='mongodb'
 # 	)
 # 	return {"success": f'{etsy_connection_id}:syncShopProcess SUCCESSFULLY ADDED TO THE JOBLIST.'}
-
 
 
 # import random
@@ -188,9 +220,6 @@ async def root():
 # 	pass
 # finally:
 # 	pass
-
-
-	
 
 
 # loop = asyncio.get_event_loop()

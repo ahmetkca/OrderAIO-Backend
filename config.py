@@ -2,6 +2,10 @@ import os
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
+SOCKETIO_PATH = 'socket.io'
+MOUNT_LOCATION = '/ws'
+ASYNC_MODE = 'asgi'
+SOCKETIO_MAIN_ROOM = 'orderaio'
 
 ENV_MODE = os.environ.get("ENV_MODE")
 
@@ -9,8 +13,8 @@ DEFAULT_SEARCH_LIMIT = 10
 DEFAULT_SEARCH_PAGE = 1
 
 
-SCHEDULED_JOB_INTERVAL = 2 if ENV_MODE == "DEV" else 25
-SCHEDULED_JOB_OFFSET = 1 if ENV_MODE == "DEV" else 10
+SCHEDULED_JOB_INTERVAL = 5 if ENV_MODE == "DEV" else 15
+SCHEDULED_JOB_OFFSET = 5 if ENV_MODE == "DEV" else 5
 
 NO_CONCURRENT = 10
 LIMIT = 100

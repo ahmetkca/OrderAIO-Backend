@@ -1,0 +1,9 @@
+2021-08-31,00:54:59.666 INFO {AsyncEtsyApi} [<module>] AsyncEtsyApi's logger successfully created.
+2021-08-31,00:54:59.980 INFO {server} [serve] Started server process [1613]
+2021-08-31,00:54:59.981 INFO {on} [startup] Waiting for application startup.
+2021-08-31,00:54:59.982 INFO {on} [startup] Application startup complete.
+2021-08-31,00:54:59.984 INFO {server} [_log_started_message] Uvicorn running on http://127.0.0.1:8003 (Press CTRL+C to quit)
+2021-08-31,00:55:13.913 INFO {server} [shutdown] Shutting down
+2021-08-31,00:55:14.013 INFO {on} [shutdown] Waiting for application shutdown.
+2021-08-31,00:55:14.014 INFO {on} [shutdown] Application shutdown complete.
+2021-08-31,00:55:14.014 INFO {server} [serve] Finished server process [1613]
