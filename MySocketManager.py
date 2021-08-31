@@ -1,3 +1,5 @@
+from MyLogger import Logger
+logging = Logger().logging
 from typing import Set
 import socketio
 from socketio.asyncio_server import AsyncServer
@@ -9,7 +11,7 @@ class MySocketManager:
 	def __init__(self, app: FastAPI) -> None:
 		self._mgr = socketio.AsyncRedisManager(REDIS_TLS_URL)
 		self._sio: AsyncServer = socketio.AsyncServer(
-			# client_manager=self._mgr, 
+			client_manager=self._mgr, 
 			async_mode=ASYNC_MODE, 
 			cors_allowed_origins=[]
 		)
@@ -19,6 +21,7 @@ class MySocketManager:
 		)
 		app.mount(MOUNT_LOCATION, self._app)
 		app.sio = self._sio
+		logging.info
 
 	def get_socket_manager(self) -> AsyncServer:
 		return self._sio

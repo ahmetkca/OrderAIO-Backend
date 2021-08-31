@@ -14,7 +14,6 @@ class Logger(object):
 				level=logging.INFO,
 				handlers=[
 					logging.StreamHandler(),
-					logging.FileHandler(mode='w', filename='my_log.log') if ENV_MODE == "DEV" else None,
 				],
 				encoding='utf-8'
 			)
