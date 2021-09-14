@@ -45,7 +45,8 @@ class MyEtsyShopManager:
                 "assigned_to": None,
             }
             notes.append(note)
-            pprint.pprint(note)
+            # pprint.pprint(note)
+            logging.debug(note)
         try:
             insert_all_notes_result = await db["Notes"].insert_many(notes, ordered=False)
         except errors.BulkWriteError as e:
@@ -54,7 +55,7 @@ class MyEtsyShopManager:
             )
             if len(panic_list) > 0:
                 logging.info(
-                    f"{colored('  ', 'red')} (insert_notes) There have been found {len(panic_list)} duplicates. {colored('  ', 'red')}"
+                    f"{colored('...', 'red')} (insert_notes) There have been found {len(panic_list)} duplicates. {colored('...', 'red')}"
                 )
 
             else:
@@ -69,6 +70,8 @@ class MyEtsyShopManager:
             return []
         for r in receipts:
             r["shop_name"] = self.shop_name
+        receipt_ids = [str(receipt['receipt_id']) for receipt in receipts]
+        dup_ids = []
         insert_all_receipts_result = None
         logging.info(f"{colored('  ', 'magenta')} Inserting Receipt Notes for given receipt ids. {colored('  ', 'magenta')}")
         await self.insert_notes([receipt['receipt_id'] for receipt in receipts])
@@ -82,9 +85,10 @@ class MyEtsyShopManager:
             panic_list = list(
                 filter(lambda x: x["code"] == 11000, e.details["writeErrors"])
             )
+            dup_ids = list(str(error['keyValue']['receipt_id']) for error in filter(lambda x: x['code'] == 11000, e.details["writeErrors"]))
             if len(panic_list) > 0:
                 logging.info(
-                    f"{colored('  ', 'red')} (insert_receipts) There have been found {len(panic_list)} duplicates. {colored('  ', 'red')}"
+                    f"{colored('...', 'red')} (insert_receipts) There have been found {len(panic_list)} duplicates. {colored('...', 'red')}"
                 )
 
             else:
@@ -92,31 +96,36 @@ class MyEtsyShopManager:
                 pass
                 # for writeError in e.details['writeErrors']:
                 # logging.info(f"{writeError['keyValue']['receipt_id']} is alreadya in the Receipts Collection.")
+        finally:
+            delta = set(receipt_ids) ^ set(dup_ids)
+            logging.info(
+                    f"{colored('......', on_color='on_yellow')} ({self.shop_name}) Successfully inserted receipts => {','.join(delta)} {colored('.......', on_color='on_yellow')}"
+                )
         # else:
         # 	await self.insert_notes(insert_all_receipts_result.inserted_ids)
-        finally:
+        # finally:
 
-            if insert_all_receipts_result is None:
-                logging.info(
-                    f"{colored('  ', 'red')} inserted_all_receipts_result is NONE {colored('  ', 'red')}"
-                )
-                return []
-            receipts_ids = [receipt["receipt_id"] for receipt in receipts]
-            delta = set(insert_all_receipts_result.inserted_ids) ^ set(receipts_ids)
-            logging.info(
-                f"{colored('  ', 'magenta')} ({len(delta)}) Difference between given receipts and inserted receipts is {', '.join(delta)} {colored('  ', 'magenta')}"
-            )
-            logging.info(
-                f"{colored('  ', 'magenta')} ({len(insert_all_receipts_result.inserted_ids)}) Inserted receipts are {', '.join(insert_all_receipts_result.inserted_ids)} {colored('  ', 'magenta')}"
-            )
+        #     if insert_all_receipts_result is None:
+        #         logging.info(
+        #             f"{colored('  ', 'red')} inserted_all_receipts_result is NONE {colored('  ', 'red')}"
+        #         )
+        #         return []
+        #     receipts_ids = [receipt["receipt_id"] for receipt in receipts]
+        #     delta = set(insert_all_receipts_result.inserted_ids) ^ set(receipts_ids)
+        #     logging.info(
+        #         f"{colored('  ', 'magenta')} ({len(delta)}) Difference between given receipts and inserted receipts is {', '.join(delta)} {colored('  ', 'magenta')}"
+        #     )
+        #     logging.info(
+        #         f"{colored('  ', 'magenta')} ({len(insert_all_receipts_result.inserted_ids)}) Inserted receipts are {', '.join([str(inserted_mongodb_id) for inserted_mongodb_id in insert_all_receipts_result.inserted_ids])} {colored('  ', 'magenta')}"
+        #     )
             # logging.info(f"{insert_all_receipts_result.inserted_ids}")
             
-            return [
-                (str(mongodb_id), receipt["receipt_id"])
-                for mongodb_id, receipt in zip(
-                    insert_all_receipts_result.inserted_ids, receipts
-                )
-            ]
+            # return [
+            #     (str(mongodb_id), receipt["receipt_id"])
+            #     for mongodb_id, receipt in zip(
+            #         insert_all_receipts_result.inserted_ids, receipts
+            #     )
+            # ]
         # return insert_all_receipts_result.inserted_ids
 
     async def update_receipt(
@@ -211,9 +220,9 @@ class MyEtsyShopManager:
             res_json = res.json()
             results: List[dict] = res_json["results"]
             for receipt in results:
-                logging.info(receipt["receipt_id"])
+                logging.debug(receipt["receipt_id"])
                 was_paid: bool = receipt["was_paid"]
-                logging.info(f"was_paid: {was_paid}")
+                logging.debug(f"was_paid: {was_paid}")
                 paid_tzs: Optional[int] = receipt["Transactions"][0]["paid_tsz"]
                 # logging.info(f"{receipt['receipt_id']} -> Transactions[0]: {receipt['Transactions'][0]}")
                 if not was_paid or paid_tzs is None:

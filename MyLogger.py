@@ -9,9 +9,9 @@ class Logger(object):
 			print("No Logger found.")
 			cls._instance = object.__new__(cls)
 			logging.basicConfig(
+				level=logging.DEBUG if ENV_MODE == 'DEV' else logging.INFO,
 				format='%(asctime)s.%(msecs)03d %(levelname)s {%(module)s} [%(funcName)s] %(message)s',
 				datefmt='%Y-%m-%d,%H:%M:%S',
-				level=logging.INFO,
 				handlers=[
 					logging.StreamHandler(),
 				],

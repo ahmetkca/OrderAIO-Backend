@@ -78,6 +78,9 @@ uvloop = "*"
 httptools = "*"
 fastapi-socketio = "*"
 python-socketio = "*"
+google-api-python-client = "*"
+google-auth-httplib2 = "*"
+google-auth-oauthlib = "*"
 
 [dev-packages]
 

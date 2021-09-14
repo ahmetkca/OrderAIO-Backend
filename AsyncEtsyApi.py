@@ -57,7 +57,7 @@ class AsyncEtsy:
 				except KeyError:
 					pass
 
-			logging.info(f"{colored(self.shop_id, 'blue', 'on_grey', attrs=['bold', 'underline'])} Done ... ({url}) ({colored(str(res.status_code), 'green' if res.status_code == 200 else 'red', attrs=['reverse', 'blink', 'bold', 'underline'])})")
+			logging.info(f"{colored(self.shop_id, 'blue', 'on_grey', attrs=['bold', 'underline'])} Done ... ({method}) ({url}) ({colored(str(res.status_code), 'green' if res.status_code == 200 else 'red', attrs=['reverse', 'blink', 'bold', 'underline'])}) ({params})")
 		return res
 	
 	async def requestByPage(self, method, url, params, page):
