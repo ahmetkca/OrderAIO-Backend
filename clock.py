@@ -64,13 +64,13 @@ async def startup_event():
         .to_list(length=None)
     )
 
-    for etsy_connection_id in etsy_connections:
-        logging.info(f"Prepearing {etsy_connection_id['etsy_shop_name']} ...")
-        etsy_connection_id = str(etsy_connection_id["_id"])
-        if etsy_connection_id == "612ffdb941b255b8121f7eb3":
-            logging.info(f"Skipping {etsy_connection_id} ...")
-            continue
-        logging.info(f"Creating sync shop process {etsy_connection_id} ...")
+    for etsy_connection in etsy_connections:
+        logging.info(f"Prepearing {etsy_connection['etsy_shop_name']} ...")
+        etsy_connection_id = str(etsy_connection["_id"])
+        # if etsy_connection_id != "612ffdb941b255b8121f7eb3":
+        #     logging.info(f"Skipping ({etsy_connection['etsy_shop_name']}) | ({etsy_connection_id}) ...")
+        #     continue
+        logging.info(f"Creating sync shop process ({etsy_connection['etsy_shop_name']}) {etsy_connection_id} ...")
         # continue
         logging.info(
             colored(

@@ -146,6 +146,9 @@ class MyEtsyShopManager:
         receipts_not_paid = []
         receipts_to_be_inserted = []
         unpaid_from_redis = r.get(f"{etsy_connection_id}:unpaid_receipts")
+        if unpaid_from_redis is None:
+            logging.info("UNPAID NOT SET !!!")
+            r.set(f"{etsy_connection_id}:unpaid_receipts", "")
         #######
         unpaid_from_redis = unpaid_from_redis.split(",")
         #######
