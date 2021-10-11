@@ -10,7 +10,7 @@ from database import MongoDB
 from MyLogger import Logger
 logging = Logger().logging
 
-from GoogleSpreadsheetsAPI import create_spreadsheet
+from .GoogleSpreadsheetsAPI import create_spreadsheet
 
 import asyncio
 
@@ -21,15 +21,16 @@ def get_barcode_formula(cell):
 
 async def get_todays_order():
     mongodb = MongoDB()
-    todays_datetime: datetime = datetime.datetime.now(tz=pytz.timezone('Canada/Eastern'))
+    # todays_datetime: datetime = datetime.datetime.now(tz=pytz.timezone('Canada/Eastern'))
+    todays_datetime: datetime = datetime.datetime.now()
     from_datetime: datetime = todays_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
     to_datetime: datetime = from_datetime.replace(hour=23, minute=59, second=59, microsecond=999999)
     ts_from_datetime: int = datetime.datetime.timestamp(from_datetime)
     ts_to_datetime: int = datetime.datetime.timestamp(to_datetime)
-    logging.debug(f"From_datetime timestamp: {ts_from_datetime}")
-    logging.debug(f"To_datetime timestamp: {ts_to_datetime}")
-    logging.debug(f"From_datetime: {from_datetime}")
-    logging.debug(f"To_datetime: {to_datetime}")
+    # logging.debug(f"From_datetime timestamp: {ts_from_datetime}")
+    # logging.debug(f"To_datetime timestamp: {ts_to_datetime}")
+    # logging.debug(f"From_datetime: {from_datetime}")
+    # logging.debug(f"To_datetime: {to_datetime}")
     orders = await mongodb.db['Receipts'].find(
         {
             'creation_tsz': {
@@ -43,43 +44,58 @@ async def get_todays_order():
             'shop_name': True,
             'receipt_id': True,
             'Transactions': True,
-            'max_due_date': True
+            'max_due_date': True,
+            'formatted_address': True,
         }
     ).sort("creation_tzs", pymongo.ASCENDING).to_list(length=None)
-    
+
+    spreadsheet_headers = await mongodb.db['ToSpreadsheetHeaders'].find(projection={"_id": False,"headers": True}).to_list(length=1)
+    spreadsheet_headers = spreadsheet_headers[0]["headers"]
+    spreadsheet_headers = list(map(lambda x: x.lower(), spreadsheet_headers))
+
     to_spreadsheet = [
-        [
-            'Store',
-            "Buyer's Name",
-            'Order No',
-            'Length And Color',
-            'Style',
-            'Personalization',
-            'Max Due Date',
-            'Barcode'
-        ]
+        spreadsheet_headers
     ]
     
     current_transaction_num = 2
     for order in orders:
         receipt_id = order['receipt_id']
         shop_name = order['shop_name']
-        max_due_date = order['max_due_date']
-        name = order['name']
-        transactions: List[dict] = order['Transactions']
+        # max_due_date = order['max_due_date']
+        # name = order['name']
+        transactions: List[dict] = order.get('Transactions')
+        formatted_address = order.get('formatted_address')
+        country = formatted_address.split('\n')
+        country = country[len(country) - 1]
         for transaction in transactions:
+            sku: str = transaction.get('product_data').get('sku')
             variations = transaction['variations']
-            variations_retrieved = []
+            variations_retrieved = ["" for _ in range(len(spreadsheet_headers))]
+            print(variations_retrieved)
             for variation in variations:
-                variations_retrieved.append(variation['formatted_value'])
+                # variations_retrieved.append(variation['formatted_value'])
+                formatted_name: str = variation.get('formatted_name').lower()
+                formatted_value: str = variation.get('formatted_value')
+                
+                try:
+                    print(formatted_name, " == ", formatted_value, f" index({spreadsheet_headers.index(formatted_name)})")
+                    # print(spreadsheet_headers)
+                    variations_retrieved[spreadsheet_headers.index(formatted_name)] = formatted_value
+                except (IndexError, ValueError) as e:
+                    print(e)
+                    pass
+            variations_retrieved = variations_retrieved[4:]
+            print(variations_retrieved)
 
             item = [
                 shop_name,
-                name,
+                # name,
                 receipt_id,
+                sku,
+                country,
                 *variations_retrieved,
-                datetime.datetime.strftime(max_due_date, "%d %B, %Y"),
-                get_barcode_formula(f'C{current_transaction_num}')
+                # datetime.datetime.strftime(max_due_date, "%d %B, %Y"),
+                # get_barcode_formula(f'C{current_transaction_num}')
             ]
             to_spreadsheet.append(
                 item        

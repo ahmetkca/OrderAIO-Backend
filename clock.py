@@ -9,6 +9,7 @@
 #     BOLD = '\033[1m'
 #     UNDERLINE = '\033[4m'
 from pydantic import BaseModel
+import pytz
 from termcolor import colored
 
 # import asyncio
@@ -23,6 +24,7 @@ from termcolor import colored
 from MyLogger import Logger
 from MyScheduler import MyScheduler
 from EtsyShopManager import syncShop
+from utils.get_new_orders_for_manufacture import get_todays_order
 
 # syncShop = EtsyShopManager.syncShop
 from config import SCHEDULED_JOB_INTERVAL, SCHEDULED_JOB_OFFSET, ENV_MODE
@@ -51,6 +53,22 @@ myScheduler = MyScheduler().scheduler
 
 @app.on_event("startup")
 async def startup_event():
+    myScheduler.add_job(
+        get_todays_order,
+        trigger="cron",
+        hour="23",
+        minute="59",
+        second="59",
+        timezone=pytz.timezone('Canada/Eastern'),
+        id=f"get_orders_and_email_them",
+        name=f"get_orders_and_email_them",
+        replace_existing=True,
+        jobstore="default" if ENV_MODE == "DEV" else "mongodb",
+        max_instances=1,
+    )
+    # myScheduler.start()
+    # myScheduler.print_jobs()
+    # return
     # if ENV_MODE == "DEV":
         # return
     
