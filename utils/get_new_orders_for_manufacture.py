@@ -22,8 +22,8 @@ def get_barcode_formula(cell):
 
 async def get_todays_order():
     mongodb = MongoDB()
-    # todays_datetime: datetime = datetime.datetime.now(tz=pytz.timezone('Canada/Eastern'))
-    todays_datetime: datetime = datetime.datetime.now()
+    todays_datetime: datetime = datetime.datetime.now(tz=pytz.timezone('Canada/Eastern'))
+    # todays_datetime: datetime = datetime.datetime.now()
     from_datetime: datetime = todays_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
     to_datetime: datetime = from_datetime.replace(hour=23, minute=59, second=59, microsecond=999999)
     ts_from_datetime: int = datetime.datetime.timestamp(from_datetime)
