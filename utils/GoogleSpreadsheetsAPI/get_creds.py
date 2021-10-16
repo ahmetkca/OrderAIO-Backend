@@ -24,7 +24,7 @@ def get_creds() -> Union[Credentials, None]:
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
                 './utils/GoogleSpreadsheetsAPI/credentials.json', SPREADSHEETS_SCOPES)
-            creds = flow.run_local_server(port=0)
+            creds = flow.run_local_server(port=0,access_type='offline',include_granted_scopes='true')
         # Save the credentials for the next run
         with open('./utils/GoogleSpreadsheetsAPI/token.json', 'w') as token:
             token.write(creds.to_json())

@@ -3,6 +3,7 @@ from typing import List
 import pymongo
 import pytz
 import os, sys
+import html
 p = os.path.abspath('.')
 sys.path.insert(1, p)
 
@@ -27,10 +28,10 @@ async def get_todays_order():
     to_datetime: datetime = from_datetime.replace(hour=23, minute=59, second=59, microsecond=999999)
     ts_from_datetime: int = datetime.datetime.timestamp(from_datetime)
     ts_to_datetime: int = datetime.datetime.timestamp(to_datetime)
-    # logging.debug(f"From_datetime timestamp: {ts_from_datetime}")
-    # logging.debug(f"To_datetime timestamp: {ts_to_datetime}")
-    # logging.debug(f"From_datetime: {from_datetime}")
-    # logging.debug(f"To_datetime: {to_datetime}")
+    logging.debug(f"From_datetime timestamp: {ts_from_datetime}")
+    logging.debug(f"To_datetime timestamp: {ts_to_datetime}")
+    logging.debug(f"From_datetime: {from_datetime}")
+    logging.debug(f"To_datetime: {to_datetime}")
     orders = await mongodb.db['Receipts'].find(
         {
             'creation_tsz': {
@@ -48,7 +49,7 @@ async def get_todays_order():
             'formatted_address': True,
         }
     ).sort("creation_tzs", pymongo.ASCENDING).to_list(length=None)
-
+    logging.info(f"#=<>=# {len(orders)} orders have been created between {from_datetime} to {to_datetime}. #=<>=#")
     spreadsheet_headers = await mongodb.db['ToSpreadsheetHeaders'].find(projection={"_id": False,"headers": True}).to_list(length=1)
     spreadsheet_headers = spreadsheet_headers[0]["headers"]
     spreadsheet_headers = list(map(lambda x: x.lower(), spreadsheet_headers))
@@ -75,6 +76,7 @@ async def get_todays_order():
             for variation in variations:
                 # variations_retrieved.append(variation['formatted_value'])
                 formatted_name: str = variation.get('formatted_name').lower()
+                formatted_name = html.unescape(formatted_name)
                 formatted_value: str = variation.get('formatted_value')
                 
                 try:
