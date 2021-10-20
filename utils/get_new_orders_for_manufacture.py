@@ -11,7 +11,7 @@ from database import MongoDB
 from MyLogger import Logger
 logging = Logger().logging
 
-from GoogleSpreadsheetsAPI import create_spreadsheet
+from .GoogleSpreadsheetsAPI import create_spreadsheet
 
 import asyncio
 
