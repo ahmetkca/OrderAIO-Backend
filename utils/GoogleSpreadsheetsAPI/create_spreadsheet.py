@@ -89,5 +89,5 @@ async def create_spreadsheetand_and_share(name: str, data, mongodb, emailAddress
 		fields='id',
   		# transferOwnership=True
 	)
-	# send_spreadsheet_response = send_spreadsheet_request.execute()
+	send_spreadsheet_response = send_spreadsheet_request.execute()
 	return spreadsheet_id

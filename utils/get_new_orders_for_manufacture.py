@@ -93,6 +93,7 @@ async def get_todays_order(year=None, month=None, day=None):
                 formatted_name: str = variation.get('formatted_name').lower()
                 formatted_name = html.unescape(formatted_name)
                 formatted_value: str = variation.get('formatted_value')
+                formatted_value = html.unescape(formatted_value)
                 
                 try:
                     print(formatted_name, " == ", formatted_value, f" index({spreadsheet_headers.index(formatted_name)})")
@@ -133,6 +134,17 @@ async def get_todays_order(year=None, month=None, day=None):
     
 
 if __name__ == '__main__':
-    asyncio.run(get_todays_order(day=18))
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--day", help="day of the datetime (1-31)")
+    parser.add_argument("-m", "--month", help="month of the datetime (1-12)")
+    parser.add_argument("-y", "--year", help="year of the datetime")
+
+    args = parser.parse_args()
+    asyncio.run(get_todays_order(
+        day=int(args.day) if args.day is not None else None,
+        month=int(args.month) if args.month is not None else None, 
+        year=int(args.year) if args.year is not None else None
+    ))
     
 	
