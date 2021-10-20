@@ -48,9 +48,15 @@ def resize_columns(service, spreadsheet_id):
     
 
 
-def create_spreadsheetand_and_share(name: str, data, emailAddress = None):
-	creds: Union[Credentials, None] = get_creds.get_creds()
+async def create_spreadsheetand_and_share(name: str, data, mongodb, emailAddress = None):
+	try:
+		creds: Union[Credentials, None] = await get_creds.get_creds(mongodb)
+	except Exception as e:
+		print("UNABLE TO GET CREDENTIALS FOR GOOGLE APIS!!!!")
+		print(e)
+		return
 	if creds is None:
+		print("UNABLE TO GET CREDENTIALS FOR GOOGLE APIS!!!!")
 		return
 	spreadsheet_service = build('sheets', 'v4', credentials=creds)
 	drive_service = build('drive', 'v3', credentials=creds)
@@ -83,5 +89,5 @@ def create_spreadsheetand_and_share(name: str, data, emailAddress = None):
 		fields='id',
   		# transferOwnership=True
 	)
-	send_spreadsheet_response = send_spreadsheet_request.execute()
+	# send_spreadsheet_response = send_spreadsheet_request.execute()
 	return spreadsheet_id

@@ -11,7 +11,7 @@ from database import MongoDB
 from MyLogger import Logger
 logging = Logger().logging
 
-from .GoogleSpreadsheetsAPI import create_spreadsheet
+from GoogleSpreadsheetsAPI import create_spreadsheet
 
 import asyncio
 
@@ -20,12 +20,27 @@ def get_barcode_formula(cell):
     return f'=IF({cell}="","", image("http://generator.onbarcode.com/linear.aspx?TYPE=4&DATA="&{cell}&"&UOM=0&X=1&Y=20&LEFT-MARGIN=0&RIGHT-MARGIN=0&TOP-MARGIN=0&BOTTOM-MARGIN=0&RESOLUTION=72&ROTATE=0&BARCODE-WIDTH=0&BARCODE-HEIGHT=0&SHOW-TEXT=false&TEXT-FONT=Arial%7c9%7cRegular&TextMargin=6&FORMAT=gif&ADD-CHECK-SUM=false&I=1.0&N=2.0&SHOW-START-STOP-IN-TEXT=true&PROCESS-TILDE=false"))'
 
 
-async def get_todays_order():
+async def get_todays_order(year=None, month=None, day=None):
     mongodb = MongoDB()
     todays_datetime: datetime = datetime.datetime.now(tz=pytz.timezone('Canada/Eastern'))
     # todays_datetime: datetime = datetime.datetime.now()
-    from_datetime: datetime = todays_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
-    to_datetime: datetime = from_datetime.replace(hour=23, minute=59, second=59, microsecond=999999)
+    from_datetime: datetime = todays_datetime.replace(
+        day=day if day is not None else todays_datetime.day,
+        month=month if month is not None else todays_datetime.month,
+        year=year if year is not None else todays_datetime.year,
+        hour=0, 
+        minute=0, 
+        second=0, 
+        microsecond=0
+    )
+    to_datetime: datetime = from_datetime.replace(
+        day=day if day is not None else todays_datetime.day,
+        month=month if month is not None else todays_datetime.month,
+        year=year if year is not None else todays_datetime.year,
+        hour=23, 
+        minute=59, 
+        second=59, 
+        microsecond=999999)
     ts_from_datetime: int = datetime.datetime.timestamp(from_datetime)
     ts_to_datetime: int = datetime.datetime.timestamp(to_datetime)
     logging.debug(f"From_datetime timestamp: {ts_from_datetime}")
@@ -105,20 +120,19 @@ async def get_todays_order():
             current_transaction_num += 1
             logging.debug(f"{item}")
     emailAddresses = await mongodb.db['ShareEmailAdressesWithGoogleSpreadsheet'].find({}, projection={'_id': False}).to_list(length=None)
-    spreadsheet_id = create_spreadsheet.create_spreadsheetand_and_share(
+    spreadsheet_id = await create_spreadsheet.create_spreadsheetand_and_share(
         datetime.datetime.strftime(
-            datetime.datetime.now(
-                tz=pytz.timezone('Canada/Eastern')
-            ), 
+            from_datetime, 
             "%d-%B-%Y_orders"
         ),
         to_spreadsheet,
+        mongodb,
         emailAddresses[0]['email']
     )
     logging.debug(f"Spreadsheet id: {spreadsheet_id}")
     
 
 if __name__ == '__main__':
-    asyncio.run(get_todays_order())
+    asyncio.run(get_todays_order(day=18))
     
 	
