@@ -9,9 +9,15 @@ sys.path.insert(1, p)
 
 from database import MongoDB
 from MyLogger import Logger
+from config import ENV_MODE
+
 logging = Logger().logging
 
-from .GoogleSpreadsheetsAPI import create_spreadsheet
+print(ENV_MODE)
+if ENV_MODE == "DEV":
+    from GoogleSpreadsheetsAPI import create_spreadsheet
+else:
+    from .GoogleSpreadsheetsAPI import create_spreadsheet
 
 import asyncio
 
@@ -141,6 +147,9 @@ if __name__ == '__main__':
     parser.add_argument("-y", "--year", help="year of the datetime")
 
     args = parser.parse_args()
+    if args.day is None and args.month is None and args.year is None:
+        print("Please specify at least one of the arguments day, month or year.")
+        exit()
     asyncio.run(get_todays_order(
         day=int(args.day) if args.day is not None else None,
         month=int(args.month) if args.month is not None else None, 
