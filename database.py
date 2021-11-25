@@ -98,13 +98,15 @@ class ReceiptNoteStatus(str, Enum):
 	completed: str = "COMPLETED"
 	uncompleted: str = "UNCOMPLETED"
 	problem: str = "PROBLEM"
-
+	sent: str = "SENT" # manufacturer saw the order and clicked sent button which implies he/she sent the product
+	hold: str = "HOLD" # manufacturer saw the order but he/she didn't sent it becuase probably there is problem with the end product
+	notseen: str = "NOTSEEN" # manufacturer hasn't seen the product yet.
 
 class CreateReceiptNote(BaseModel):
 	receipt_id: int
 	note: Optional[str]
 	assigned_to: Optional[str]
-	status: ReceiptNoteStatus = Field(default=ReceiptNoteStatus.uncompleted)
+	status: ReceiptNoteStatus = Field(default=ReceiptNoteStatus.notseen)
 
 
 class UpdateReceiptNote(BaseModel):

@@ -5,6 +5,8 @@ __pycache__
 .deta
 localhost+1.pem
 localhost+1-key.pem
+localhost.crt
+localhost.key
 app
 test.json
 transactions.json

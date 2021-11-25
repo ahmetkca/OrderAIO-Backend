@@ -60,6 +60,7 @@ auth_handler = AuthHandler()
 
 origins = [
 	FRONTEND_URI,
+	"https://localhost:3000"
 ]
 
 print(origins)
