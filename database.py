@@ -122,7 +122,7 @@ class ReceiptNote(BaseModel):
 	updated_by: Optional[str]
 	note: Optional[str]
 	assigned_to: Optional[str]
-	status: ReceiptNoteStatus = Field(default=ReceiptNoteStatus.uncompleted)
+	status: ReceiptNoteStatus = Field(default=ReceiptNoteStatus.notseen)
 	
 	class Config:
 		allow_population_by_field_name = True

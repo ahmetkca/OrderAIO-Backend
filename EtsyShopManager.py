@@ -41,7 +41,7 @@ class MyEtsyShopManager:
             note = {
                 "receipt_id": receipt_id,
                 "created_at": datetime.now(),
-                "status": ReceiptNoteStatus.uncompleted,
+                "status": ReceiptNoteStatus.notseen,
                 "assigned_to": None,
             }
             notes.append(note)
